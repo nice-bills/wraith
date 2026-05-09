@@ -1,0 +1,15 @@
+[workspace]
+members = [
+  "contracts/stellar-identity-core",
+  "tools/proof-adapter",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+version = "0.1.0"
+
+[profile.release]
+overflow-checks = true
+

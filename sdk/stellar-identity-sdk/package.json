@@ -1,0 +1,20 @@
+{
+  "name": "@wraith/stellar-identity-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Stellar Identity Core contract integration",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "test": "npm run build && node --test dist/index.test.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^15.1.0",
+    "stellar-hd-wallet": "^1.0.2"
+  }
+}
