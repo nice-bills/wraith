@@ -10,6 +10,8 @@ export interface AppPolicy {
   requireHumanity: boolean;
   sanctionsRoot: Hex;
   excludedCountries: number[];
+  expirationWindow: number;
+  sanctionsEnabled: boolean;
 }
 
 export interface AttestedClaims {
@@ -88,16 +90,32 @@ export class StellarIdentityClient {
     await this.invokeContract("set_prover", [newProver]);
   }
 
-  async registerApp(appId: string, policy: AppPolicy): Promise<AppPolicy> {
+  async registerApp(
+    appId: string,
+    policy: AppPolicy,
+    vkHash?: Hex,
+  ): Promise<AppPolicy> {
     assertNonEmpty("appId", appId);
     assertClaimsPolicy(policy);
-    return this.invokeContract<AppPolicy>("register_app", [appId, policy]);
+    return this.invokeContract<AppPolicy>("register_app", [
+      appId,
+      policy,
+      vkHash ?? null,
+    ]);
   }
 
-  async updateAppPolicy(appId: string, policy: AppPolicy): Promise<AppPolicy> {
+  async updateAppPolicy(
+    appId: string,
+    policy: AppPolicy,
+    vkHash?: Hex,
+  ): Promise<AppPolicy> {
     assertNonEmpty("appId", appId);
     assertClaimsPolicy(policy);
-    return this.invokeContract<AppPolicy>("update_app_policy", [appId, policy]);
+    return this.invokeContract<AppPolicy>("update_app_policy", [
+      appId,
+      policy,
+      vkHash ?? null,
+    ]);
   }
 
   async revokeApp(appId: string): Promise<AppPolicy> {
@@ -167,8 +185,25 @@ export class StellarIdentityClient {
     ]);
   }
 
-  async hasNullifier(nullifier: Hex): Promise<boolean> {
-    return this.invokeContract<boolean>("has_nullifier", [nullifier]);
+  async hasNullifier(appId: string, nullifier: Hex): Promise<boolean> {
+    return this.invokeContract<boolean>("has_nullifier", [appId, nullifier]);
+  }
+
+  async setAppApproval(appId: string, approved: boolean): Promise<void> {
+    assertNonEmpty("appId", appId);
+    await this.invokeContract("set_app_approval", [appId, approved]);
+  }
+
+  async isApprovedApp(appId: string): Promise<boolean> {
+    return this.invokeContract<boolean>("is_approved_app", [appId]);
+  }
+
+  async setApprovalMode(required: boolean): Promise<void> {
+    await this.invokeContract("set_approval_mode", [required]);
+  }
+
+  async isAppApprovalRequired(): Promise<boolean> {
+    return this.invokeContract<boolean>("is_app_approval_required", []);
   }
 }
 

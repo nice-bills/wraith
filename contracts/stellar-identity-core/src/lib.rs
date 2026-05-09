@@ -298,11 +298,6 @@ impl StellarIdentityCore {
         claims: AttestedClaims,
     ) -> Result<VerificationRecord, IdentityError> {
         subject.require_auth();
-        let policy = Self::get_policy_required(&env, app_id.clone())?;
-        Self::validate_policy(&policy, &claims)?;
-        if policy.sanctions_enabled {
-            Self::check_sanctions(&env, &policy, &claims)?;
-        }
         Self::ensure_unused_nullifier(&env, app_id.clone(), nullifier.clone())?;
         Self::ensure_subject_unverified(&env, app_id.clone(), subject.clone())?;
 
@@ -311,12 +306,19 @@ impl StellarIdentityCore {
             return Err(IdentityError::PublicInputsHashMismatch);
         }
 
-        let vk_hash_opt = Self::get_vk_hash(env.clone(), app_id.clone());
-        if let Some(stored_vk_hash) = vk_hash_opt {
-            let computed_vk_hash = Self::compute_vk_hash(&env, &vk);
-            if stored_vk_hash != computed_vk_hash {
-                return Err(IdentityError::VkMismatch);
-            }
+        let derived_claims = Self::derive_claims_from_signals(&pub_signals)?;
+        Self::verify_claims_match(&derived_claims, &claims)?;
+
+        let policy = Self::get_policy_required(&env, app_id.clone())?;
+        Self::validate_policy(&policy, &derived_claims)?;
+        if policy.sanctions_enabled {
+            Self::check_sanctions(&env, &policy, &derived_claims)?;
+        }
+
+        let stored_vk_hash = Self::get_vk_hash(env.clone(), app_id.clone()).ok_or(IdentityError::VkNotRegistered)?;
+        let computed_vk_hash = Self::compute_vk_hash(&env, &vk);
+        if stored_vk_hash != computed_vk_hash {
+            return Err(IdentityError::VkMismatch);
         }
 
         let verified = Self::verify_groth16(&env, vk, proof, pub_signals)?;
@@ -331,9 +333,9 @@ impl StellarIdentityCore {
             public_inputs_hash,
             verified_ledger: env.ledger().sequence(),
             source: VerificationSource::OnchainGroth16,
-            age: claims.age,
-            country_code: claims.country_code,
-            is_human: claims.is_human,
+            age: derived_claims.age,
+            country_code: derived_claims.country_code,
+            is_human: derived_claims.is_human,
         };
         Self::store_record(&env, record.clone())?;
         let source = VerificationSource::OnchainGroth16;
@@ -579,6 +581,54 @@ impl StellarIdentityCore {
         }
         let hash = env.crypto().sha256(&bytes);
         hash.into()
+    }
+
+    fn derive_claims_from_signals(pub_signals: &Vec<Bn254Fr>) -> Result<AttestedClaims, IdentityError> {
+        if pub_signals.len() < 3 {
+            return Err(IdentityError::MalformedVerifyingKey);
+        }
+        let age_fr = pub_signals.get(0).unwrap();
+        let country_fr = pub_signals.get(1).unwrap();
+        let is_human_fr = pub_signals.get(2).unwrap();
+        let age_bytes = age_fr.to_bytes();
+        let country_bytes = country_fr.to_bytes();
+        let is_human_bytes = is_human_fr.to_bytes();
+        let age = u32::from_le_bytes([
+            age_bytes.get(0).unwrap_or(0),
+            age_bytes.get(1).unwrap_or(0),
+            age_bytes.get(2).unwrap_or(0),
+            age_bytes.get(3).unwrap_or(0),
+        ]);
+        let country_code = u32::from_le_bytes([
+            country_bytes.get(0).unwrap_or(0),
+            country_bytes.get(1).unwrap_or(0),
+            country_bytes.get(2).unwrap_or(0),
+            country_bytes.get(3).unwrap_or(0),
+        ]);
+        let is_human_val = u32::from_le_bytes([
+            is_human_bytes.get(0).unwrap_or(0),
+            is_human_bytes.get(1).unwrap_or(0),
+            is_human_bytes.get(2).unwrap_or(0),
+            is_human_bytes.get(3).unwrap_or(0),
+        ]);
+        Ok(AttestedClaims {
+            age,
+            country_code,
+            is_human: is_human_val != 0,
+        })
+    }
+
+    fn verify_claims_match(derived: &AttestedClaims, supplied: &AttestedClaims) -> Result<(), IdentityError> {
+        if derived.age != supplied.age {
+            return Err(IdentityError::PolicyViolation);
+        }
+        if derived.country_code != supplied.country_code {
+            return Err(IdentityError::PolicyViolation);
+        }
+        if derived.is_human != supplied.is_human {
+            return Err(IdentityError::PolicyViolation);
+        }
+        Ok(())
     }
 
     fn read_admin(env: &Env) -> Result<Address, IdentityError> {

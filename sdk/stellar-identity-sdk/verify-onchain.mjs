@@ -1,4 +1,6 @@
 import pkg from "@stellar/stellar-sdk";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 const { Keypair, SorobanTransactionBuilder, Networks, xdr, Address, StrKey } = pkg;
 
 const CONTRACT_ID = process.env.CONTRACT_ID || "CDCQKLVESDP3PUQBI2LKSTKPDPXOSUNEQFKNNZDEWQFOJ2LJN3DY65A6";
@@ -45,15 +47,13 @@ function parseDecimalFp2(pair) {
 }
 
 function computeVkHash(alpha, beta, gamma, delta, ic) {
-  const crypto = require('crypto');
   const allBytes = Buffer.concat([alpha, beta, gamma, delta, ...ic]);
-  return crypto.createHash('sha256').update(allBytes).digest('hex');
+  return createHash('sha256').update(allBytes).digest('hex');
 }
 
 function computePubInputsHash(pubSignals) {
-  const crypto = require('crypto');
   const chunks = pubSignals.map(s => Buffer.from(decimalToBeHex(s, 32), 'hex'));
-  return crypto.createHash('sha256').update(Buffer.concat(chunks)).digest('hex');
+  return createHash('sha256').update(Buffer.concat(chunks)).digest('hex');
 }
 
 function scBytesN(buf) {
@@ -122,11 +122,10 @@ async function main() {
   }
 
   const [vkPath, proofPath, pubSignalsPath, appId, subject, claimsJson] = args;
-  const fs = require('fs');
 
-  const vk = JSON.parse(fs.readFileSync(vkPath, 'utf8'));
-  const proof = JSON.parse(fs.readFileSync(proofPath, 'utf8'));
-  const pubSignals = JSON.parse(fs.readFileSync(pubSignalsPath, 'utf8'));
+  const vk = JSON.parse(readFileSync(vkPath, 'utf8'));
+  const proof = JSON.parse(readFileSync(proofPath, 'utf8'));
+  const pubSignals = JSON.parse(readFileSync(pubSignalsPath, 'utf8'));
   const claims = claimsJson ? JSON.parse(claimsJson) : { age: 30, country_code: 840, is_human: true };
 
   console.log("=== verify_and_record with BN254 proof ===\n");
