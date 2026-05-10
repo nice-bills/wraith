@@ -1,4 +1,14 @@
 #![cfg(test)]
+//! Contract unit tests.
+//!
+//! Test coverage notes:
+//! - The Groth16 verification path (`verify_and_record`) is exercised through rejection tests
+//!   that validate VK hash, claim derivation, policy enforcement, and sanctions checks.
+//! - A positive end-to-end test with a real valid proof requires BN254 pairing support in the
+//!   test environment, which is not available. Real deployment should be tested on Futurenet
+//!   with actual snarkjs-generated proofs.
+//! - The attested path (`record_attested_result`) is tested for replay protection and policy
+//!   enforcement via `record_attested_result_emits_event_and_blocks_replay`.
 
 extern crate std;
 
