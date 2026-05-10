@@ -408,7 +408,6 @@ fn blocks_policy_violations_and_duplicate_subjects() {
 }
 
 
-
 #[test]
 fn verify_and_record_rejects_claim_mismatch() {
     let env = Env::default();
@@ -474,7 +473,6 @@ fn verify_and_record_rejects_claim_mismatch() {
     });
     assert_eq!(result, Err(IdentityError::PolicyViolation));
 }
-
 #[test]
 fn app_approval_mode_blocks_registration() {
     let env = Env::default();
