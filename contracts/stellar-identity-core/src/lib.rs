@@ -403,6 +403,8 @@ impl StellarIdentityCore {
     }
 
     pub fn is_verified(env: Env, app_id: Symbol, subject: Address) -> bool {
+        // NOTE: Returns false for unregistered apps, unverified subjects, and expired records.
+        // Callers should use get_record to distinguish "not verified yet" from other states.
         let key = SubjectKey { app_id: app_id.clone(), subject };
         let record = match env.storage().persistent().get::<_, VerificationRecord>(&DataKey::Record(key)) {
             Some(r) => r,
@@ -504,14 +506,6 @@ impl StellarIdentityCore {
     }
 
     fn store_record(env: &Env, record: VerificationRecord) -> Result<(), IdentityError> {
-        let policy = Self::get_policy_required(env, record.app_id.clone())?;
-        if policy.expiration_window > 0 {
-            let current_ledger = env.ledger().sequence();
-            let elapsed = current_ledger.saturating_sub(record.verified_ledger);
-            if elapsed > policy.expiration_window {
-                return Err(IdentityError::VerificationExpired);
-            }
-        }
         env.storage()
             .persistent()
             .set(&DataKey::Nullifier(record.app_id.clone(), record.nullifier.clone()), &true);
