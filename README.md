@@ -8,10 +8,14 @@ Stellar-native identity verification stack with contract, adapter, SDK, and depl
   - app policy registry
   - app lifecycle management
   - app-scoped verification records
-  - nullifier replay protection
+  - nullifier replay protection (app-scoped)
   - BN254 Groth16 verification path (`verify_and_record`)
   - attested prover ingestion path (`record_attested_result`)
   - policy enforcement (min age, humanity requirement, excluded countries)
+  - VK hash pinning (mandatory for Groth16 verification)
+  - claims derived from public signals (cryptographically bound)
+  - app approval mode for admin-controlled registration
+  - record expiration enforcement on read
   - lifecycle and verification events
 - **Proof adapter CLI (`proof-adapter`)**
   - converts `snarkjs`-style `proof.json`, `verification_key.json`, and `public.json`
@@ -28,7 +32,7 @@ Stellar-native identity verification stack with contract, adapter, SDK, and depl
 
 ## Project layout
 
-```text
+```
 self-stellar/
 ├── contracts/stellar-identity-core
 ├── tools/proof-adapter
@@ -83,32 +87,37 @@ cd /home/bills/code/self-stellar
 
 - `init(admin, prover)`
 - `set_prover(new_prover)`
-- `register_app(app_id, policy)`
-- `update_app_policy(app_id, policy)`
+- `register_app(app_id, policy, vk_hash?)` — app_id must be admin-approved if approval mode is required
+- `update_app_policy(app_id, policy, vk_hash?)`
 - `revoke_app(app_id)`
 - `get_policy(app_id)`
+- `get_vk_hash(app_id)`
 - `is_app_registered(app_id)`
+- `is_approved_app(app_id)`
+- `set_app_approval(app_id, approved)` — admin only
+- `set_approval_mode(required)` — admin only
 - `get_admin()`
 - `get_prover()`
-- `verify_and_record(app_id, subject, nullifier, public_inputs_hash, vk, proof, pub_signals, claims)`
-- `record_attested_result(prover, app_id, subject, nullifier, public_inputs_hash, attestation_hash, claims)`
-- `is_verified(app_id, subject)`
-- `get_record(app_id, subject)`
-- `has_nullifier(nullifier)`
+- `verify_and_record(app_id, subject, nullifier, public_inputs_hash, vk, proof, pub_signals, claims)` — requires VK hash to be registered; claims must match derived from pub_signals
+- `record_attested_result(prover, app_id, subject, nullifier, public_inputs_hash, attestation_hash, claims)` — prover auth required
+- `is_verified(app_id, subject)` — enforces expiration if configured
+- `get_record(app_id, subject)` — returns None if expired
+- `has_nullifier(app_id, nullifier)`
 
-## Emitted events
+## Security model
 
-- `Initialized`
-- `AppRegistered`
-- `AppUpdated`
-- `AppRevoked`
-- `ProverUpdated`
-- `VerificationRecorded`
+- VK hash is **mandatory** for Groth16 verification — unregistered VKs are rejected
+- Claims are **cryptographically bound** to the proof — derived from pub_signals[0..2] and verified against supplied claims
+- `public_inputs_hash` is **validated** against recomputed hash of pub_signals
+- Nullifiers are **app-scoped** — `Nullifier(app_id, nullifier)` prevents cross-app linkability
+- App registration requires **admin approval** when approval mode is enabled
+- Verification records **expire** based on `expiration_window` — enforced on read
 
 ## Notes
 
 - The Groth16 method expects BN254 points encoded in Soroban host format.
 - The attested path remains pluggable for TEE-backed proving services.
-- Claims are enforced by app policy at record time.
+- Claims are enforced by app policy at record time and derived from public signals for on-chain proofs.
+- `sanctions_enabled` is a configuration flag — real sanctions screening requires circuit-level Merkle proof integration.
 - For production launch, complete external security audit and cost benchmarking.
 - For design context and source-of-truth comparisons, read `docs/ARCHITECTURE_NOTES.md`.

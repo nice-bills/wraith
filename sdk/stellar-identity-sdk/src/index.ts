@@ -91,11 +91,14 @@ export class StellarIdentityClient {
   }
 
   async registerApp(
+    appId: string,
     policy: AppPolicy,
     vkHash?: Hex,
-  ): Promise<string> {
+  ): Promise<AppPolicy> {
+    assertNonEmpty("appId", appId);
     assertClaimsPolicy(policy);
-    return this.invokeContract<string>("register_app", [
+    return this.invokeContract<AppPolicy>("register_app", [
+      appId,
       policy,
       vkHash ?? null,
     ]);
@@ -126,6 +129,10 @@ export class StellarIdentityClient {
 
   async isAppRegistered(appId: string): Promise<boolean> {
     return this.invokeContract<boolean>("is_app_registered", [appId]);
+  }
+
+  async getVkHash(appId: string): Promise<Hex | null> {
+    return this.invokeContract<Hex | null>("get_vk_hash", [appId]);
   }
 
   async verifyAndRecord(
@@ -197,10 +204,6 @@ export class StellarIdentityClient {
 
   async setApprovalMode(required: boolean): Promise<void> {
     await this.invokeContract("set_approval_mode", [required]);
-  }
-
-  async isAppApprovalRequired(): Promise<boolean> {
-    return this.invokeContract<boolean>("is_app_approval_required", []);
   }
 }
 

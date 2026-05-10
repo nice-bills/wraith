@@ -5,19 +5,37 @@ Thin TypeScript client for the Stellar identity core contract.
 ## Core methods
 
 - `init`
-- `get_admin`
-- `get_prover`
-- `set_prover`
-- `register_app`
-- `update_app_policy`
-- `revoke_app`
-- `get_policy`
-- `is_app_registered`
-- `verify_and_record`
-- `record_attested_result`
-- `is_verified`
-- `get_record`
-- `has_nullifier`
+- `getAdmin`
+- `getProver`
+- `setProver`
+- `registerApp(appId, policy, vkHash?)` — returns AppPolicy
+- `updateAppPolicy(appId, policy, vkHash?)`
+- `revokeApp(appId)`
+- `getPolicy(appId)`
+- `getVkHash(appId)`
+- `isAppRegistered(appId)`
+- `isApprovedApp(appId)`
+- `setAppApproval(appId, approved)`
+- `setApprovalMode(required)`
+- `verifyAndRecord(appId, subject, payload)` — requires registered VK hash
+- `recordAttestedResult(appId, subject, payload)`
+- `isVerified(appId, subject)` — enforces expiration
+- `getRecord(appId, subject)` — returns null if expired
+- `hasNullifier(appId, nullifier)`
+
+## AppPolicy interface
+
+```typescript
+interface AppPolicy {
+  owner: string;
+  minAge: number;
+  requireHumanity: boolean;
+  sanctionsRoot: Hex;
+  excludedCountries: number[];
+  expirationWindow: number;
+  sanctionsEnabled: boolean;
+}
+```
 
 ## Build
 

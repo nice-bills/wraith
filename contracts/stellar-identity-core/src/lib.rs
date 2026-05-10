@@ -197,11 +197,10 @@ impl StellarIdentityCore {
 
     pub fn register_app(
         env: Env,
+        app_id: Symbol,
         policy: AppPolicy,
         vk_hash: Option<BytesN<32>>,
-    ) -> Result<Symbol, IdentityError> {
-        policy.owner.require_auth();
-        let app_id = Self::derive_app_id(&env, &policy.owner);
+    ) -> Result<AppPolicy, IdentityError> {
         if Self::get_policy(env.clone(), app_id.clone()).is_some() {
             return Err(IdentityError::AppAlreadyRegistered);
         }
@@ -210,6 +209,7 @@ impl StellarIdentityCore {
                 return Err(IdentityError::AppNotApproved);
             }
         }
+        policy.owner.require_auth();
         let owner = policy.owner.clone();
         env.storage()
             .persistent()
@@ -224,7 +224,7 @@ impl StellarIdentityCore {
             owner,
         }
         .publish(&env);
-        Ok(app_id)
+        Ok(policy)
     }
 
     pub fn update_app_policy(
@@ -403,13 +403,33 @@ impl StellarIdentityCore {
     }
 
     pub fn is_verified(env: Env, app_id: Symbol, subject: Address) -> bool {
-        let key = SubjectKey { app_id, subject };
-        env.storage().persistent().has(&DataKey::Record(key))
+        let key = SubjectKey { app_id: app_id.clone(), subject };
+        let record = match env.storage().persistent().get::<_, VerificationRecord>(&DataKey::Record(key)) {
+            Some(r) => r,
+            None => return false,
+        };
+        let policy = match Self::get_policy(env.clone(), app_id.clone()) {
+            Some(p) => p,
+            None => return false,
+        };
+        if policy.expiration_window == 0 {
+            return true;
+        }
+        let elapsed = env.ledger().sequence().saturating_sub(record.verified_ledger);
+        elapsed <= policy.expiration_window
     }
 
     pub fn get_record(env: Env, app_id: Symbol, subject: Address) -> Option<VerificationRecord> {
-        let key = SubjectKey { app_id, subject };
-        env.storage().persistent().get(&DataKey::Record(key))
+        let key = SubjectKey { app_id: app_id.clone(), subject };
+        let record = env.storage().persistent().get::<_, VerificationRecord>(&DataKey::Record(key))?;
+        let policy = Self::get_policy(env.clone(), app_id)?;
+        if policy.expiration_window > 0 {
+            let elapsed = env.ledger().sequence().saturating_sub(record.verified_ledger);
+            if elapsed > policy.expiration_window {
+                return None;
+            }
+        }
+        Some(record)
     }
 
     pub fn has_nullifier(env: Env, app_id: Symbol, nullifier: BytesN<32>) -> bool {
@@ -634,24 +654,6 @@ impl StellarIdentityCore {
             return Err(IdentityError::PolicyViolation);
         }
         Ok(())
-    }
-
-    fn derive_app_id(env: &Env, owner: &Address) -> Symbol {
-        use soroban_sdk::Bytes;
-        let owner_val = owner.to_val();
-        let mut bytes = Bytes::new(env);
-        let val_u64 = owner_val.get_payload();
-        let val_bytes = val_u64.to_le_bytes();
-        let val_bytes_b = Bytes::from_array(env, &val_bytes);
-        bytes.append(&val_bytes_b);
-        let hash = env.crypto().sha256(&bytes);
-        let hash_bytes: BytesN<32> = hash.into();
-        let mut symbol_bytes = [0u8; 10];
-        for i in 0..10 {
-            symbol_bytes[i] = hash_bytes.get(i as u32).unwrap_or(0);
-        }
-        #[allow(deprecated)]
-        Symbol::short(core::str::from_utf8(&symbol_bytes).unwrap_or("app"))
     }
 
     fn read_admin(env: &Env) -> Result<Address, IdentityError> {
