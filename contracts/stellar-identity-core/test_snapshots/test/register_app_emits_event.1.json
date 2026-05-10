@@ -60,7 +60,7 @@
                     "symbol": "AppPolicy"
                   },
                   {
-                    "symbol": "wave"
+                    "symbol": "app"
                   }
                 ]
               },
@@ -248,7 +248,7 @@
                 "symbol": "app_registered"
               },
               {
-                "symbol": "wave"
+                "symbol": "app"
               }
             ],
             "data": {

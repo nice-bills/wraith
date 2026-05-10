@@ -120,7 +120,7 @@
                     "symbol": "AppPolicy"
                   },
                   {
-                    "symbol": "gated"
+                    "symbol": "app"
                   }
                 ]
               },
@@ -208,7 +208,7 @@
                     "symbol": "Nullifier"
                   },
                   {
-                    "symbol": "gated"
+                    "symbol": "app"
                   },
                   {
                     "bytes": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
@@ -244,7 +244,7 @@
                           "symbol": "app_id"
                         },
                         "val": {
-                          "symbol": "gated"
+                          "symbol": "app"
                         }
                       },
                       {
@@ -275,7 +275,7 @@
                       "symbol": "app_id"
                     },
                     "val": {
-                      "symbol": "gated"
+                      "symbol": "app"
                     }
                   },
                   {

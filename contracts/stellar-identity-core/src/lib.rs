@@ -197,10 +197,11 @@ impl StellarIdentityCore {
 
     pub fn register_app(
         env: Env,
-        app_id: Symbol,
         policy: AppPolicy,
         vk_hash: Option<BytesN<32>>,
-    ) -> Result<AppPolicy, IdentityError> {
+    ) -> Result<Symbol, IdentityError> {
+        policy.owner.require_auth();
+        let app_id = Self::derive_app_id(&env, &policy.owner);
         if Self::get_policy(env.clone(), app_id.clone()).is_some() {
             return Err(IdentityError::AppAlreadyRegistered);
         }
@@ -209,7 +210,6 @@ impl StellarIdentityCore {
                 return Err(IdentityError::AppNotApproved);
             }
         }
-        policy.owner.require_auth();
         let owner = policy.owner.clone();
         env.storage()
             .persistent()
@@ -224,7 +224,7 @@ impl StellarIdentityCore {
             owner,
         }
         .publish(&env);
-        Ok(policy)
+        Ok(app_id)
     }
 
     pub fn update_app_policy(
@@ -511,6 +511,11 @@ impl StellarIdentityCore {
         if sanctions_root == zero {
             return Err(IdentityError::SanctionsCheckFailed);
         }
+        // NOTE: This is a stub. Real sanctions enforcement requires:
+        // 1. Circuit computes a Merkle proof of non-inclusion in sanctions list
+        // 2. Proof elements passed as additional pub_signals or function params
+        // 3. Contract verifies proof against stored sanctions_root
+        // For now, this ensures sanctions_root is configured before enforcement is enabled.
         Ok(())
     }
 
@@ -629,6 +634,24 @@ impl StellarIdentityCore {
             return Err(IdentityError::PolicyViolation);
         }
         Ok(())
+    }
+
+    fn derive_app_id(env: &Env, owner: &Address) -> Symbol {
+        use soroban_sdk::Bytes;
+        let owner_val = owner.to_val();
+        let mut bytes = Bytes::new(env);
+        let val_u64 = owner_val.get_payload();
+        let val_bytes = val_u64.to_le_bytes();
+        let val_bytes_b = Bytes::from_array(env, &val_bytes);
+        bytes.append(&val_bytes_b);
+        let hash = env.crypto().sha256(&bytes);
+        let hash_bytes: BytesN<32> = hash.into();
+        let mut symbol_bytes = [0u8; 10];
+        for i in 0..10 {
+            symbol_bytes[i] = hash_bytes.get(i as u32).unwrap_or(0);
+        }
+        #[allow(deprecated)]
+        Symbol::short(core::str::from_utf8(&symbol_bytes).unwrap_or("app"))
     }
 
     fn read_admin(env: &Env) -> Result<Address, IdentityError> {

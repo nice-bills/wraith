@@ -3,7 +3,7 @@
 extern crate std;
 
 use soroban_sdk::{
-    Address, BytesN, Env, Event, Symbol, U256, Vec,
+    Address, BytesN, Env, Event, U256, Vec,
     crypto::bn254::{Bn254Fr, Bn254G1Affine, Bn254G2Affine},
     testutils::{Address as _, Events as _},
 };
@@ -71,7 +71,6 @@ fn register_app_emits_event() {
     let admin = Address::generate(&env);
     let prover = Address::generate(&env);
     let owner = Address::generate(&env);
-    let app_id = Symbol::new(&env, "wave");
 
     emit_init(&env, &contract_id, &admin, &prover);
 
@@ -85,14 +84,13 @@ fn register_app_emits_event() {
         sanctions_enabled: false,
     };
 
-    env.as_contract(&contract_id, || {
-        StellarIdentityCore::register_app(env.clone(), app_id.clone(), policy, None)
-    })
-    .unwrap();
+    let app_id = env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(env.clone(), policy, None).unwrap()
+    });
 
     assert_eq!(
         event_vec(&env),
-        std::vec![AppRegistered { app_id, owner }.to_xdr(&env, &contract_id)]
+        std::vec![AppRegistered { app_id: app_id.clone(), owner }.to_xdr(&env, &contract_id)]
     );
 }
 
@@ -105,14 +103,12 @@ fn app_lifecycle_emits_events() {
     let admin = Address::generate(&env);
     let prover = Address::generate(&env);
     let owner = Address::generate(&env);
-    let app_id = Symbol::new(&env, "wave");
 
     emit_init(&env, &contract_id, &admin, &prover);
 
-    env.as_contract(&contract_id, || {
+    let app_id = env.as_contract(&contract_id, || {
         StellarIdentityCore::register_app(
             env.clone(),
-            app_id.clone(),
             AppPolicy {
                 owner: owner.clone(),
                 min_age: 18,
@@ -174,14 +170,12 @@ fn record_attested_result_emits_event_and_blocks_replay() {
     let prover = Address::generate(&env);
     let owner = Address::generate(&env);
     let subject = Address::generate(&env);
-    let app_id = Symbol::new(&env, "drips");
     let nullifier = bytes32(&env, 7);
 
     emit_init(&env, &contract_id, &admin, &prover);
-    env.as_contract(&contract_id, || {
+    let app_id = env.as_contract(&contract_id, || {
         StellarIdentityCore::register_app(
             env.clone(),
-            app_id.clone(),
             AppPolicy {
                 owner,
                 min_age: 21,
@@ -269,13 +263,11 @@ fn rejects_malformed_vk_before_pairing() {
     let prover = Address::generate(&env);
     let owner = Address::generate(&env);
     let subject = Address::generate(&env);
-    let app_id = Symbol::new(&env, "mvp");
 
     emit_init(&env, &contract_id, &admin, &prover);
-    env.as_contract(&contract_id, || {
+    let app_id = env.as_contract(&contract_id, || {
         StellarIdentityCore::register_app(
             env.clone(),
-            app_id.clone(),
             AppPolicy {
                 owner,
                 min_age: 16,
@@ -330,13 +322,11 @@ fn blocks_policy_violations_and_duplicate_subjects() {
     let prover = Address::generate(&env);
     let owner = Address::generate(&env);
     let subject = Address::generate(&env);
-    let app_id = Symbol::new(&env, "gated");
 
     emit_init(&env, &contract_id, &admin, &prover);
-    env.as_contract(&contract_id, || {
+    let app_id = env.as_contract(&contract_id, || {
         StellarIdentityCore::register_app(
             env.clone(),
-            app_id.clone(),
             AppPolicy {
                 owner,
                 min_age: 21,

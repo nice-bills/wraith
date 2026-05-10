@@ -91,14 +91,11 @@ export class StellarIdentityClient {
   }
 
   async registerApp(
-    appId: string,
     policy: AppPolicy,
     vkHash?: Hex,
-  ): Promise<AppPolicy> {
-    assertNonEmpty("appId", appId);
+  ): Promise<string> {
     assertClaimsPolicy(policy);
-    return this.invokeContract<AppPolicy>("register_app", [
-      appId,
+    return this.invokeContract<string>("register_app", [
       policy,
       vkHash ?? null,
     ]);

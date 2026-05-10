@@ -43,20 +43,22 @@ async function main() {
   console.log(`   Policy:`, JSON.stringify(policy, null, 4));
   console.log(`   ✓ Policy retrieved\n`);
 
-  console.log("5. Calling registerApp('drips', new policy)...");
+  console.log("5. Calling registerApp(new policy)...");
   const newPolicy = {
     owner: admin,
     minAge: 21,
     requireHumanity: true,
     sanctionsRoot: "0x" + "a".repeat(64),
     excludedCountries: [840],
+    expirationWindow: 0,
+    sanctionsEnabled: false,
   };
-  const registeredPolicy = await identity.registerApp("drips", newPolicy);
-  console.log(`   Registered policy:`, JSON.stringify(registeredPolicy, null, 4));
+  const appId = await identity.registerApp(newPolicy);
+  console.log(`   App ID: ${appId}`);
   console.log(`   ✓ New app registered\n`);
 
-  console.log("6. Calling isAppRegistered('drips')...");
-  const dripsRegistered = await identity.isAppRegistered("drips");
+  console.log("6. Calling isAppRegistered(returned appId)...");
+  const dripsRegistered = await identity.isAppRegistered(appId);
   console.log(`   Registered: ${dripsRegistered}`);
   console.log(`   ✓ Second app check: ${dripsRegistered}\n`);
 

@@ -90,7 +90,7 @@
                     "symbol": "AppPolicy"
                   },
                   {
-                    "symbol": "drips"
+                    "symbol": "app"
                   }
                 ]
               },
@@ -178,7 +178,7 @@
                     "symbol": "Nullifier"
                   },
                   {
-                    "symbol": "drips"
+                    "symbol": "app"
                   },
                   {
                     "bytes": "0707070707070707070707070707070707070707070707070707070707070707"
@@ -214,7 +214,7 @@
                           "symbol": "app_id"
                         },
                         "val": {
-                          "symbol": "drips"
+                          "symbol": "app"
                         }
                       },
                       {
@@ -245,7 +245,7 @@
                       "symbol": "app_id"
                     },
                     "val": {
-                      "symbol": "drips"
+                      "symbol": "app"
                     }
                   },
                   {
