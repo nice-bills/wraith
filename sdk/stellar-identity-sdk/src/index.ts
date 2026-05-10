@@ -277,9 +277,62 @@ function assertClaims(claims: AttestedClaims): void {
 
 export function assertVerificationPayload(payload: VerificationPayload): void {
   assertClaims(payload.claims);
-  assertNonEmpty("nullifier", payload.nullifier);
-  assertNonEmpty("publicInputsHash", payload.publicInputsHash);
+  assertHex32("nullifier", payload.nullifier);
+  assertHex32("publicInputsHash", payload.publicInputsHash);
   if (!payload.publicSignals.length) {
     throw new Error("publicSignals cannot be empty.");
+  }
+  for (let i = 0; i < payload.publicSignals.length; i++) {
+    assertHex("publicSignals", i, payload.publicSignals[i]);
+  }
+  assertProofInput("proof", payload.proof);
+  assertVkInput("vk", payload.vk);
+}
+
+function assertHex32(name: string, value: string): void {
+  assertNonEmpty(name, value);
+  if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
+    throw new Error(`${name} must be a 32-byte hex string (66 chars with 0x prefix).`);
+  }
+}
+
+function assertHex(name: string, index: number, value: string): void {
+  if (!/^0x[0-9a-fA-F]+$/.test(value)) {
+    throw new Error(`${name}[${index}] must be a valid hex string.`);
+  }
+}
+
+function assertProofInput(name: string, proof: ProofInput): void {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(proof.a)) {
+    throw new Error(`${name}.a must be a G1 point (64 hex chars with 0x).`);
+  }
+  if (!/^0x[0-9a-fA-F]{128}$/.test(proof.b)) {
+    throw new Error(`${name}.b must be a G2 point (128 hex chars with 0x).`);
+  }
+  if (!/^0x[0-9a-fA-F]{64}$/.test(proof.c)) {
+    throw new Error(`${name}.c must be a G1 point (64 hex chars with 0x).`);
+  }
+}
+
+function assertVkInput(name: string, vk: VerificationKeyInput): void {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(vk.alpha)) {
+    throw new Error(`${name}.alpha must be a G1 point.`);
+  }
+  if (!/^0x[0-9a-fA-F]{128}$/.test(vk.beta)) {
+    throw new Error(`${name}.beta must be a G2 point.`);
+  }
+  if (!/^0x[0-9a-fA-F]{128}$/.test(vk.gamma)) {
+    throw new Error(`${name}.gamma must be a G2 point.`);
+  }
+  if (!/^0x[0-9a-fA-F]{128}$/.test(vk.delta)) {
+    throw new Error(`${name}.delta must be a G2 point.`);
+  }
+  if (!Array.isArray(vk.ic) || vk.ic.length === 0) {
+    throw new Error(`${name}.ic must be a non-empty array.`);
+  }
+  for (let i = 0; i < vk.ic.length; i++) {
+    if (!/^0x[0-9a-fA-F]{64}$/.test(vk.ic[i])) {
+      throw new Error(`${name}.ic[${i}] must be a G1 point.`);
+    }
   }
 }

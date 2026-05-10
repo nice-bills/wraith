@@ -3,10 +3,8 @@
 ## Contract Status
 **DEPLOYED AND OPERATIONAL** on Futurenet
 
-- Contract ID: `CD3CGXCZUUOGWRRKPAJKOZHHLOQY5QAEBHWAQUL54XTPHEULBFTDDOZQ`
 - Network: Futurenet (Test SDF Future Network ; October 2022)
 - Soroban RPC: https://rpc-futurenet.stellar.org:443
-- Source Key: `GDYLBKGXBZ4QWVKZGGEWEZ2CY4BNVULZ62JNI6JYGOENLNH6I5RC5SA5`
 
 ## Verified Proofs
 
@@ -24,8 +22,8 @@
 - Groth16 verification using BN254 pairing
 
 ### SDK (`stellar-identity-sdk`)
-- `verify-and-record.mjs`: CLI tool for submitting proofs
-- `smoke-test.mjs`: Basic contract read operations
+- `smoke-test.mjs`: Read-only contract smoke test (requires `CONTRACT_ID` env var)
+- Full TypeScript SDK in `src/index.ts` for programmatic invocation
 - Uses `stellar-cli` for contract invocation
 
 ### ZK Circuits (`tools/zk-circuits/`)
@@ -37,16 +35,17 @@
 
 1. **Circuit Compilation**: circom 2.2.3 → circuit.wasm + circuit.r1cs
 2. **Proof Generation**: snarkjs groth16 prove → proof.json + public.json
-3. **Adapter Conversion**: Transform proof to contract format
+3. **Adapter Conversion**: `cargo run -p proof-adapter` to transform proof to contract format
 4. **Submission**: stellar-cli contract invoke --send=yes verify_and_record
 
 ## SDK Usage
 
 ```bash
-node src/verify-and-record.mjs <adapter.json> <appId> <subject> [nullifier] [pubInputsHash]
+# Read-only smoke test (no writes)
+CONTRACT_ID=<contract_id> node smoke-test.mjs
 ```
 
-### Adapter JSON Format
+### Adapter JSON Format (proof-adapter output)
 ```json
 {
   "proof": {

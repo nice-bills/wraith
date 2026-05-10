@@ -265,6 +265,7 @@ impl StellarIdentityCore {
         policy.owner.require_auth();
         env.storage().persistent().remove(&DataKey::AppPolicy(app_id.clone()));
         env.storage().persistent().remove(&DataKey::AppVkHash(app_id.clone()));
+        env.storage().persistent().remove(&DataKey::AppApproved(app_id.clone()));
         let owner = policy.owner.clone();
         AppRevoked {
             app_id: app_id.clone(),
@@ -298,8 +299,9 @@ impl StellarIdentityCore {
         claims: AttestedClaims,
     ) -> Result<VerificationRecord, IdentityError> {
         subject.require_auth();
+        let policy = Self::get_policy_required(&env, app_id.clone())?;
         Self::ensure_unused_nullifier(&env, app_id.clone(), nullifier.clone())?;
-        Self::ensure_subject_unverified(&env, app_id.clone(), subject.clone())?;
+        Self::ensure_subject_unverified(&env, app_id.clone(), subject.clone(), policy.expiration_window)?;
 
         let computed_pub_inputs_hash = Self::compute_pub_signals_hash(&env, &pub_signals);
         if public_inputs_hash != computed_pub_inputs_hash {
@@ -309,7 +311,6 @@ impl StellarIdentityCore {
         let derived_claims = Self::derive_claims_from_signals(&pub_signals)?;
         Self::verify_claims_match(&derived_claims, &claims)?;
 
-        let policy = Self::get_policy_required(&env, app_id.clone())?;
         Self::validate_policy(&policy, &derived_claims)?;
         if policy.sanctions_enabled {
             Self::check_sanctions(&env, &policy, &derived_claims)?;
@@ -363,6 +364,7 @@ impl StellarIdentityCore {
         claims: AttestedClaims,
     ) -> Result<VerificationRecord, IdentityError> {
         prover.require_auth();
+        subject.require_auth();
         let configured_prover = Self::read_prover(&env)?;
         if prover != configured_prover {
             return Err(IdentityError::Unauthorized);
@@ -374,7 +376,7 @@ impl StellarIdentityCore {
             Self::check_sanctions(&env, &policy, &claims)?;
         }
         Self::ensure_unused_nullifier(&env, app_id.clone(), nullifier.clone())?;
-        Self::ensure_subject_unverified(&env, app_id.clone(), subject.clone())?;
+        Self::ensure_subject_unverified(&env, app_id.clone(), subject.clone(), policy.expiration_window)?;
 
         let source = VerificationSource::AttestedProver(attestation_hash.clone());
         let record = VerificationRecord {
@@ -555,9 +557,18 @@ impl StellarIdentityCore {
         env: &Env,
         app_id: Symbol,
         subject: Address,
+        expiration_window: u32,
     ) -> Result<(), IdentityError> {
         let key = SubjectKey { app_id, subject };
-        if env.storage().persistent().has(&DataKey::Record(key)) {
+        let record: VerificationRecord = match env.storage().persistent().get(&DataKey::Record(key)) {
+            Some(r) => r,
+            None => return Ok(()),
+        };
+        if expiration_window == 0 {
+            return Err(IdentityError::SubjectAlreadyVerified);
+        }
+        let elapsed = env.ledger().sequence().saturating_sub(record.verified_ledger);
+        if elapsed <= expiration_window {
             return Err(IdentityError::SubjectAlreadyVerified);
         }
         Ok(())

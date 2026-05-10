@@ -21,7 +21,7 @@ use soroban_sdk::{
 use crate::{
     AppPolicy, AppRegistered, AppRevoked, AppUpdated, AttestedClaims, IdentityError, Initialized,
     Proof, ProverUpdated, StellarIdentityCore, VerificationKey, VerificationRecorded,
-    VerificationRecord, VerificationSource,
+    VerificationSource,
 };
 
 fn create_contract(env: &Env) -> Address {
