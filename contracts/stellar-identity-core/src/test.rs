@@ -407,6 +407,145 @@ fn blocks_policy_violations_and_duplicate_subjects() {
     assert_eq!(duplicate_subject, Err(IdentityError::SubjectAlreadyVerified));
 }
 
+fn garbage_claims() -> AttestedClaims {
+    AttestedClaims {
+        age: 0,
+        country_code: 0,
+        is_human: false,
+    }
+}
+
+#[test]
+fn verify_and_record_requires_vk_hash() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let subject = Address::generate(&env);
+    let app_id = Symbol::new(&env, "vkreq");
+
+    emit_init(&env, &contract_id, &admin, &prover);
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner,
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    })
+    .unwrap();
+
+    let vk = VerificationKey {
+        alpha: zero_g1(&env),
+        beta: zero_g2(&env),
+        gamma: zero_g2(&env),
+        delta: zero_g2(&env),
+        ic: Vec::from_array(&env, [zero_g1(&env)]),
+    };
+    let proof = Proof {
+        a: zero_g1(&env),
+        b: zero_g2(&env),
+        c: zero_g1(&env),
+    };
+    let pub_signals = Vec::from_array(&env, [
+        Bn254Fr::from_u256(U256::from_u32(&env, 25)),
+        Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+        Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+    ]);
+    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
+
+    let result = env.as_contract(&contract_id, || {
+        StellarIdentityCore::verify_and_record(
+            env.clone(),
+            app_id.clone(),
+            subject.clone(),
+            bytes32(&env, 0),
+            pub_inputs_hash.clone(),
+            vk.clone(),
+            proof.clone(),
+            pub_signals.clone(),
+            garbage_claims(),
+        )
+    });
+    assert_eq!(result, Err(IdentityError::VkNotRegistered));
+}
+
+#[test]
+fn verify_and_record_rejects_vk_mismatch() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let subject = Address::generate(&env);
+    let app_id = Symbol::new(&env, "vkmismatch");
+
+    emit_init(&env, &contract_id, &admin, &prover);
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner,
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            Some(bytes32(&env, 99)),
+        )
+    })
+    .unwrap();
+
+    let vk = VerificationKey {
+        alpha: zero_g1(&env),
+        beta: zero_g2(&env),
+        gamma: zero_g2(&env),
+        delta: zero_g2(&env),
+        ic: Vec::from_array(&env, [zero_g1(&env)]),
+    };
+    let proof = Proof {
+        a: zero_g1(&env),
+        b: zero_g2(&env),
+        c: zero_g1(&env),
+    };
+    let pub_signals = Vec::from_array(&env, [
+        Bn254Fr::from_u256(U256::from_u32(&env, 25)),
+        Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+        Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+    ]);
+    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
+
+    let result = env.as_contract(&contract_id, || {
+        StellarIdentityCore::verify_and_record(
+            env.clone(),
+            app_id.clone(),
+            subject.clone(),
+            bytes32(&env, 0),
+            pub_inputs_hash.clone(),
+            vk.clone(),
+            proof.clone(),
+            pub_signals.clone(),
+            garbage_claims(),
+        )
+    });
+    assert_eq!(result, Err(IdentityError::VkMismatch));
+}
 
 #[test]
 fn verify_and_record_rejects_claim_mismatch() {
