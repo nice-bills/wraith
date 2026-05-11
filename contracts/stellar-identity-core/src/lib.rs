@@ -201,6 +201,7 @@ impl StellarIdentityCore {
         policy: AppPolicy,
         vk_hash: Option<BytesN<32>>,
     ) -> Result<AppPolicy, IdentityError> {
+        Self::read_admin(&env)?;
         if Self::get_policy(env.clone(), app_id.clone()).is_some() {
             return Err(IdentityError::AppAlreadyRegistered);
         }
@@ -233,6 +234,7 @@ impl StellarIdentityCore {
         policy: AppPolicy,
         vk_hash: Option<BytesN<32>>,
     ) -> Result<AppPolicy, IdentityError> {
+        Self::read_admin(&env)?;
         if Self::is_app_approval_required(&env) {
             if !Self::is_approved_app(env.clone(), app_id.clone()) {
                 return Err(IdentityError::AppNotApproved);
@@ -261,6 +263,7 @@ impl StellarIdentityCore {
     }
 
     pub fn revoke_app(env: Env, app_id: Symbol) -> Result<AppPolicy, IdentityError> {
+        Self::read_admin(&env)?;
         let policy = Self::get_policy_required(&env, app_id.clone())?;
         policy.owner.require_auth();
         env.storage().persistent().remove(&DataKey::AppPolicy(app_id.clone()));
@@ -298,6 +301,7 @@ impl StellarIdentityCore {
         pub_signals: Vec<Bn254Fr>,
         claims: AttestedClaims,
     ) -> Result<VerificationRecord, IdentityError> {
+        Self::read_admin(&env)?;
         subject.require_auth();
         let policy = Self::get_policy_required(&env, app_id.clone())?;
         Self::ensure_unused_nullifier(&env, app_id.clone(), nullifier.clone())?;

@@ -163,6 +163,9 @@ export class StellarIdentityClient {
     assertNonEmpty("appId", appId);
     assertNonEmpty("subject", subject);
     assertNonEmpty("prover", payload.prover);
+    assertHex32("nullifier", payload.nullifier);
+    assertHex32("publicInputsHash", payload.publicInputsHash);
+    assertHex32("attestationHash", payload.attestationHash);
     assertClaims(payload.claims);
     return this.invokeContract<VerificationRecord>("record_attested_result", [
       payload.prover,
@@ -306,8 +309,8 @@ function assertProofInput(name: string, proof: ProofInput): void {
   if (!/^0x[0-9a-fA-F]{64}$/.test(proof.a)) {
     throw new Error(`${name}.a must be a G1 point (64 hex chars with 0x).`);
   }
-  if (!/^0x[0-9a-fA-F]{128}$/.test(proof.b)) {
-    throw new Error(`${name}.b must be a G2 point (128 hex chars with 0x).`);
+  if (!/^0x[0-9a-fA-F]{256}$/.test(proof.b)) {
+    throw new Error(`${name}.b must be a G2 point (256 hex chars with 0x).`);
   }
   if (!/^0x[0-9a-fA-F]{64}$/.test(proof.c)) {
     throw new Error(`${name}.c must be a G1 point (64 hex chars with 0x).`);
@@ -318,13 +321,13 @@ function assertVkInput(name: string, vk: VerificationKeyInput): void {
   if (!/^0x[0-9a-fA-F]{64}$/.test(vk.alpha)) {
     throw new Error(`${name}.alpha must be a G1 point.`);
   }
-  if (!/^0x[0-9a-fA-F]{128}$/.test(vk.beta)) {
+  if (!/^0x[0-9a-fA-F]{256}$/.test(vk.beta)) {
     throw new Error(`${name}.beta must be a G2 point.`);
   }
-  if (!/^0x[0-9a-fA-F]{128}$/.test(vk.gamma)) {
+  if (!/^0x[0-9a-fA-F]{256}$/.test(vk.gamma)) {
     throw new Error(`${name}.gamma must be a G2 point.`);
   }
-  if (!/^0x[0-9a-fA-F]{128}$/.test(vk.delta)) {
+  if (!/^0x[0-9a-fA-F]{256}$/.test(vk.delta)) {
     throw new Error(`${name}.delta must be a G2 point.`);
   }
   if (!Array.isArray(vk.ic) || vk.ic.length === 0) {
