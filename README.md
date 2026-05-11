@@ -1,4 +1,4 @@
-# Self Stellar Identity Core
+# Wraith Identity Core
 
 Stellar-native identity verification stack with contract, adapter, SDK, and deployment tooling.
 
@@ -33,7 +33,7 @@ Stellar-native identity verification stack with contract, adapter, SDK, and depl
 ## Project layout
 
 ```
-self-stellar/
+wraith/
 ├── contracts/stellar-identity-core
 ├── tools/proof-adapter
 └── sdk/stellar-identity-sdk
@@ -44,7 +44,7 @@ self-stellar/
 ### 1) Contract + adapter (Rust workspace)
 
 ```bash
-cd /home/bills/code/self-stellar
+cd /home/bills/code/wraith
 cargo test
 ```
 
@@ -57,7 +57,7 @@ cargo build -p stellar-identity-core --target wasm32v1-none
 ### 2) Proof adapter usage
 
 ```bash
-cd /home/bills/code/self-stellar
+cd /home/bills/code/wraith
 cargo run -p proof-adapter -- \
   --proof /path/to/proof.json \
   --vk /path/to/verification_key.json \
@@ -71,7 +71,7 @@ cargo run -p proof-adapter -- \
 ### 3) SDK build
 
 ```bash
-cd /home/bills/code/self-stellar/sdk/stellar-identity-sdk
+cd /home/bills/code/wraith/sdk/stellar-identity-sdk
 npm install
 npm run build
 ```
@@ -79,7 +79,7 @@ npm run build
 ### 4) One-command local build
 
 ```bash
-cd /home/bills/code/self-stellar
+cd /home/bills/code/wraith
 ./scripts/build-all.sh
 ```
 
