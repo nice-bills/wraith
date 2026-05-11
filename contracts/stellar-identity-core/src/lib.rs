@@ -522,17 +522,18 @@ impl StellarIdentityCore {
     }
 
     fn check_sanctions(env: &Env, policy: &AppPolicy, _claims: &AttestedClaims) -> Result<(), IdentityError> {
-        let sanctions_root = policy.sanctions_root.clone();
-        let zero = BytesN::<32>::from_array(env, &[0u8; 32]);
-        if sanctions_root == zero {
-            return Err(IdentityError::SanctionsCheckFailed);
-        }
-        // NOTE: This is a stub. Real sanctions enforcement requires:
-        // 1. Circuit computes a Merkle proof of non-inclusion in sanctions list
-        // 2. Proof elements passed as additional pub_signals or function params
-        // 3. Contract verifies proof against stored sanctions_root
-        // For now, this ensures sanctions_root is configured before enforcement is enabled.
-        Ok(())
+        // FAIL-SAFE: sanctions_enabled:true always fails until real circuit integration exists.
+        // This prevents a dangerous illusion of protection — enabling sanctions_enabled:true
+        // WITHOUT a bound circuit proof should never silently pass.
+        //
+        // Real implementation requires:
+        // 1. Dedicated sanctions circuit produces a Merkle non-inclusion proof
+        // 2. Proof elements passed as additional pub_signals (e.g., siblings + leaf index)
+        // 3. Contract verifies proof against stored sanctions_root (Merkle root)
+        //
+        // Until that circuit exists and is bound to this policy, any app with
+        // sanctions_enabled:true would be making a false compliance claim.
+        Err(IdentityError::SanctionsCheckFailed)
     }
 
     fn get_policy_required(env: &Env, app_id: Symbol) -> Result<AppPolicy, IdentityError> {

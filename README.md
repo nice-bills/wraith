@@ -118,6 +118,28 @@ cd /home/bills/code/self-stellar
 - The Groth16 method expects BN254 points encoded in Soroban host format.
 - The attested path remains pluggable for TEE-backed proving services.
 - Claims are enforced by app policy at record time and derived from public signals for on-chain proofs.
-- `sanctions_enabled` is a configuration flag — real sanctions screening requires circuit-level Merkle proof integration.
-- For production launch, complete external security audit and cost benchmarking.
-- For design context and source-of-truth comparisons, read `docs/ARCHITECTURE_NOTES.md`.
+
+## Known Limitations
+
+### Sanctions Enforcement (Beta)
+`sanctions_enabled` in `AppPolicy` is currently a **fail-safe stub**. Setting it to `true` will always reject verification with `SanctionsCheckFailed` until real circuit integration exists. This is intentional — enabling sanctions without a bound proof circuit would create a false compliance claim.
+
+Real implementation requires:
+1. A dedicated sanctions circuit that produces a Merkle non-inclusion proof
+2. Proof elements passed as additional `pub_signals` (e.g., siblings + leaf index)
+3. Contract verification of the proof against the stored `sanctions_root` (Merkle root)
+
+Do NOT rely on `sanctions_enabled: true` for compliance until this circuit is integrated.
+
+### Expiration Semantics
+Records that exceed their `expiration_window` become invisible to `is_verified()` and `get_record()`, but their nullifiers still block re-verification. This means a user who expires appears "unverified" but cannot re-verify until the expiration window passes. Plan your `expiration_window` values accordingly.
+
+### Revocation Semantics
+Revoking an app removes its policy and VK hash, but existing verification records and nullifiers persist. Re-registering the same `app_id` will show the app as registered, but prior nullifiers still block duplicate verification. Use fresh `app_id` values for new deployment cycles.
+
+## Production Readiness
+
+For production launch:
+- Complete external security audit
+- Cost benchmarking on Futurenet
+- Design context: see `docs/ARCHITECTURE_NOTES.md`
