@@ -492,6 +492,166 @@ fn verify_and_record_requires_vk_hash() {
 }
 
 #[test]
+fn revoke_app_preserves_records_and_nullifiers() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let subject = Address::generate(&env);
+    let app_id = Symbol::new(&env, "revival");
+    let nullifier = bytes32(&env, 77);
+
+    emit_init(&env, &contract_id, &admin, &prover);
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner: owner.clone(),
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    })
+    .unwrap();
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::record_attested_result(
+            env.clone(),
+            prover.clone(),
+            app_id.clone(),
+            subject.clone(),
+            nullifier.clone(),
+            bytes32(&env, 8),
+            bytes32(&env, 9),
+            claims(30, 840, true),
+        )
+    })
+    .unwrap();
+
+    let was_verified = env.as_contract(&contract_id, || {
+        StellarIdentityCore::is_verified(env.clone(), app_id.clone(), subject.clone())
+    });
+    assert!(was_verified);
+
+    let nullifier_still_used_before = env.as_contract(&contract_id, || {
+        StellarIdentityCore::has_nullifier(env.clone(), app_id.clone(), nullifier.clone())
+    });
+    assert!(nullifier_still_used_before);
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::revoke_app(env.clone(), app_id.clone())
+    })
+    .unwrap();
+
+    let nullifier_still_used_after = env.as_contract(&contract_id, || {
+        StellarIdentityCore::has_nullifier(env.clone(), app_id.clone(), nullifier.clone())
+    });
+    assert!(nullifier_still_used_after);
+
+    let record_inaccessible = env.as_contract(&contract_id, || {
+        StellarIdentityCore::get_record(env.clone(), app_id.clone(), subject.clone())
+    });
+    assert!(record_inaccessible.is_none());
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner: owner.clone(),
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    })
+    .unwrap();
+
+    let blocked = env.as_contract(&contract_id, || {
+        StellarIdentityCore::record_attested_result(
+            env.clone(),
+            prover.clone(),
+            app_id.clone(),
+            subject.clone(),
+            bytes32(&env, 88),
+            bytes32(&env, 8),
+            bytes32(&env, 9),
+            claims(30, 840, true),
+        )
+    });
+    assert_eq!(blocked, Err(IdentityError::SubjectAlreadyVerified));
+}
+
+#[test]
+fn revoke_clears_approval_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let app_id = Symbol::new(&env, "approvals");
+
+    emit_init(&env, &contract_id, &admin, &prover);
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::set_approval_mode(env.clone(), true).unwrap()
+    });
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::set_app_approval(env.clone(), app_id.clone(), true).unwrap()
+    });
+
+    let approved_before = env.as_contract(&contract_id, || {
+        StellarIdentityCore::is_approved_app(env.clone(), app_id.clone())
+    });
+    assert!(approved_before);
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner,
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    })
+    .unwrap();
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::revoke_app(env.clone(), app_id.clone())
+    })
+    .unwrap();
+
+    let cleared = env.as_contract(&contract_id, || {
+        StellarIdentityCore::is_approved_app(env.clone(), app_id.clone())
+    });
+    assert!(!cleared);
+}
+
+#[test]
 fn verify_and_record_rejects_vk_mismatch() {
     let env = Env::default();
     env.mock_all_auths();
