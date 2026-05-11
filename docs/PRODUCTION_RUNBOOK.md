@@ -49,16 +49,16 @@ CONTRACT_ID=<contract_id> node smoke-test.mjs
 ```json
 {
   "proof": {
-    "a": ["hex", "hex", "1"],
-    "b": [["hex", "hex"], ["hex", "hex"], ["1", "0"]],
-    "c": ["hex", "hex", "1"]
+    "a": "0x...",   // G1 point as 0x-prefixed hex string (64 bytes)
+    "b": "0x...",   // G2 point as 0x-prefixed hex string (128 bytes)
+    "c": "0x..."    // G1 point as 0x-prefixed hex string (64 bytes)
   },
   "verification_key": {
-    "alpha": "hex (64 bytes)",
-    "beta": "hex (128 bytes)",
-    "gamma": "hex (128 bytes)",
-    "delta": "hex (128 bytes)",
-    "ic": ["hex (64 bytes)", ...]
+    "alpha": "0x...",   // G1 point, 64 hex bytes
+    "beta": "0x...",    // G2 point, 128 hex bytes
+    "gamma": "0x...",   // G2 point, 128 hex bytes
+    "delta": "0x...",  // G2 point, 128 hex bytes
+    "ic": ["0x...", "0x...", ...]  // G1 points array, min 1 element
   },
   "public_signals_decimals": ["18", "840", "826", "276"],
   "claims": {"age": 30, "country_code": 840, "is_human": true}
@@ -98,13 +98,15 @@ verify_and_record(
   public_inputs_hash: BytesN<32>,
   vk: VerificationKey,
   proof: Proof,
-  pub_signals: Vec<U256>,
+  pub_signals: Vec<Bn254Fr>,
   claims: AttestedClaims
 ) -> VerificationRecord
 ```
 
 Error cases:
-- AlreadyInitialized: subject already verified for app
-- NullifierAlreadyUsed: nullifier replay protection
+- AlreadyInitialized: contract already initialized
+- SubjectAlreadyVerified: subject already has a non-expired record for this app
+- NullifierAlreadyUsed: nullifier already used for this app
 - InvalidProof: Groth16 verification failed
-- MalformedVerifyingKey: IC length mismatch
+- VkMismatch: VK hash does not match registered hash
+- PolicyViolation: claims violate app policy

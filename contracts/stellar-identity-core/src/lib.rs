@@ -521,7 +521,7 @@ impl StellarIdentityCore {
         Ok(())
     }
 
-    fn check_sanctions(env: &Env, policy: &AppPolicy, _claims: &AttestedClaims) -> Result<(), IdentityError> {
+    fn check_sanctions(_env: &Env, _policy: &AppPolicy, _claims: &AttestedClaims) -> Result<(), IdentityError> {
         // FAIL-SAFE: sanctions_enabled:true always fails until real circuit integration exists.
         // This prevents a dangerous illusion of protection — enabling sanctions_enabled:true
         // WITHOUT a bound circuit proof should never silently pass.

@@ -132,7 +132,7 @@ Real implementation requires:
 Do NOT rely on `sanctions_enabled: true` for compliance until this circuit is integrated.
 
 ### Expiration Semantics
-Records that exceed their `expiration_window` become invisible to `is_verified()` and `get_record()`, but their nullifiers still block re-verification. This means a user who expires appears "unverified" but cannot re-verify until the expiration window passes. Plan your `expiration_window` values accordingly.
+Records that exceed their `expiration_window` become invisible to `is_verified()` and `get_record()`. However, **used nullifiers are permanently burned** — a user who expires with nullifier N cannot re-use nullifier N, but can re-verify with a fresh nullifier after the expiration window passes. Plan your `expiration_window` values accordingly.
 
 ### Revocation Semantics
 Revoking an app removes its policy and VK hash, but existing verification records and nullifiers persist. Re-registering the same `app_id` will show the app as registered, but prior nullifiers still block duplicate verification. Use fresh `app_id` values for new deployment cycles.
