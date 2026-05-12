@@ -9,6 +9,4 @@ tools/zk-circuits/proof/
 *.ptau
 *.r1cs
 *.sym
-*.json
-!.json
 
