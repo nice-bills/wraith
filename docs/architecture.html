@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wraith Identity Core - Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; background: linear-gradient(135deg, #6366f1, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { color: #94a3b8; margin-bottom: 2rem; }
+        .diagram-section { background: #1e293b; border-radius: 16px; padding: 2rem; margin-bottom: 2rem; }
+        .diagram-section h2 { font-size: 1.25rem; color: #f1f5f9; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .diagram-section h2::before { content: ''; display: inline-block; width: 4px; height: 1.25rem; background: linear-gradient(180deg, #6366f1, #ec4899); border-radius: 2px; }
+        .mermaid { background: #0f172a; border-radius: 12px; padding: 1.5rem; }
+        .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+        .legend-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: #0f172a; border-radius: 8px; }
+        .legend-color { width: 12px; height: 12px; border-radius: 3px; }
+        .legend-label { font-size: 0.875rem; color: #cbd5e1; }
+        .flow-container { display: flex; flex-direction: column; gap: 1rem; }
+        .flow-step { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #0f172a; border-radius: 8px; border-left: 3px solid #6366f1; }
+        .flow-step-num { width: 28px; height: 28px; background: #6366f1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem; flex-shrink: 0; }
+        .flow-step-content { flex: 1; }
+        .flow-step-title { font-weight: 600; color: #f1f5f9; margin-bottom: 0.25rem; }
+        .flow-step-desc { font-size: 0.8rem; color: #94a3b8; }
+        .flow-arrow { text-align: center; color: #475569; font-size: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wraith Identity Core</h1>
+        <p class="subtitle">Stellar-native ZK Identity Verification Stack</p>
+
+        <div class="diagram-section">
+            <h2>System Architecture</h2>
+            <div class="mermaid">
+graph TB
+    subgraph User["👤 Prover / User"]
+        ZKApp["ZK Application"]
+        ProverLib["snarkjs Prover"]
+    end
+
+    subgraph Circuit["🔐 ZK Circuit Layer"]
+        age_check["age_check.circom<br/>≥18 age verification"]
+        passport["passport_verifier.circom<br/>Full passport proof"]
+        simple["simple_mult.circom<br/>Multiplication test"]
+    end
+
+    subgraph ProofGen["⚡ Proof Generation"]
+        TrustedSetup["Powers of Tau<br/>Trusted Setup"]
+        zkey["Compiled zKey"]
+        r1cs["R1CS Constraint System"]
+    end
+
+    subgraph Adapter["🔄 Proof Adapter"]
+        proof_json["proof.json<br/>snarkjs format"]
+        adapter["proof-adapter<br/>Rust CLI"]
+        sorobanProof["Soroban-compatible<br/>BN254 Proof"]
+    end
+
+    subgraph Chain["⛓️ Stellar / Soroban"]
+        Contract["stellar-identity-core<br/>Soroban Contract"]
+        AppRegistry["App Policy Registry"]
+        Nullifiers["Nullifier Registry"]
+        Records["Verification Records"]
+    end
+
+    subgraph SDK["📦 TypeScript SDK"]
+        StellarSDK["@stellar/stellar-sdk"]
+        WraithSDK["@wraith/stellar-identity-sdk"]
+        Client["StellarIdentityClient"]
+    end
+
+    ZKApp --> ProverLib
+    ProverLib --> zkey
+    ProverLib --> proof_json
+    proof_json --> adapter
+    adapter --> Client
+    Client --> Contract
+    TrustedSetup -.-> Circom
+    r1cs --> zkey
+
+    Contract --> AppRegistry
+    Contract --> Nullifiers
+    Contract --> Records
+
+    style ZKApp fill:#6366f1,color:#fff,stroke:#818cf8
+    style Contract fill:#10b981,color:#fff,stroke:#34d399
+    style adapter fill:#f59e0b,color:#000,stroke:#fbbf24
+    style WraithSDK fill:#ec4899,color:#fff,stroke:#f472b6
+    style TrustedSetup fill:#8b5cf6,color:#fff,stroke:#a78bfa
+    style zkey fill:#8b5cf6,color:#fff,stroke:#a78bfa
+    style r1cs fill:#8b5cf6,color:#fff,stroke:#a78bfa
+    style StellarSDK fill:#14b8a6,color:#fff,stroke:#2dd4bf
+    style Client fill:#14b8a6,color:#fff,stroke:#2dd4bf
+    style proof_json fill:#64748b,color:#fff,stroke:#94a3b8
+    style sorobanProof fill:#64748b,color:#fff,stroke:#94a3b8
+    style age_check fill:#1e293b,color:#e2e8f0,stroke:#6366f1
+    style passport fill:#1e293b,color:#e2e8f0,stroke:#6366f1
+    style simple fill:#1e293b,color:#e2e8f0,stroke:#6366f1
+    style AppRegistry fill:#1e293b,color:#e2e8f0,stroke:#10b981
+    style Nullifiers fill:#1e293b,color:#e2e8f0,stroke:#10b981
+    style Records fill:#1e293b,color:#e2e8f0,stroke:#10b981
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <h2>Verification Flow</h2>
+            <div class="flow-container">
+                <div class="flow-step">
+                    <div class="flow-step-num">1</div>
+                    <div class="flow-step-content">
+                        <div class="flow-step-title">Generate ZK Proof</div>
+                        <div class="flow-step-desc">User's application runs the Circom circuit locally with snarkjs, producing a Groth16 proof</div>
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-step-num">2</div>
+                    <div class="flow-step-content">
+                        <div class="flow-step-title">Convert Proof Format</div>
+                        <div class="flow-step-desc">proof-adapter CLI converts snarkjs JSON proof to Soroban-compatible BN254 format</div>
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-step-num">3</div>
+                    <div class="flow-step-content">
+                        <div class="flow-step-title">Submit via SDK</div>
+                        <div class="flow-step-desc">TypeScript SDK invokes verify_and_record() on the Soroban contract</div>
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-step-num">4</div>
+                    <div class="flow-step-content">
+                        <div class="flow-step-title">On-Chain Verification</div>
+                        <div class="flow-step-desc">Contract verifies VK hash, validates proof, checks policy rules, records nullifier + verification record</div>
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="flow-step">
+                    <div class="flow-step-num">5</div>
+                    <div class="flow-step-content">
+                        <div class="flow-step-title">Result Returned</div>
+                        <div class="flow-step-desc">VerificationResult returned to SDK and application; user is now verified on-chain</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <h2>Component Legend</h2>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-color" style="background:#6366f1"></div><span class="legend-label">User / Application Layer</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#8b5cf6"></div><span class="legend-label">ZK Circuit / Setup</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#f59e0b"></div><span class="legend-label">Proof Adapter</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#10b981"></div><span class="legend-label">Soroban Contract</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#ec4899"></div><span class="legend-label">TypeScript SDK</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#14b8a6"></div><span class="legend-label">Stellar SDK</span></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            flowchart: { curve: 'basis', padding: 20 },
+            securityLevel: 'loose'
+        });
+    </script>
+</body>
+</html>

@@ -27,9 +27,13 @@
 - Uses `stellar-cli` for contract invocation
 
 ### ZK Circuits (`tools/zk-circuits/`)
-- `circuits/simple_mult.circom`: Trivial multiplication proof
-- `circuits/age_check.circom`: Age verification (≥18, nationality, validity)
-- `circuits/passport_verifier.circom`: Full passport verification
+**⚠️ DEMO-ONLY: These circuits are not production-sound and should not be used for real identity verification.**
+
+- `circuits/simple_mult.circom`: Trivial multiplication proof (demo only)
+- `circuits/age_check.circom`: Age verification (≥18, nationality, validity) - **demo only, not cryptographically sound**
+- `circuits/passport_verifier.circom`: Passport verification - **demo only, contains known issues**
+
+For production use, replace with properly audited circuits using real range checks, proper comparator gadgets, and passport document authenticity verification.
 
 ## Pipeline
 

@@ -9,6 +9,7 @@
 //!   with actual snarkjs-generated proofs.
 //! - The attested path (`record_attested_result`) is tested for replay protection and policy
 //!   enforcement via `record_attested_result_emits_event_and_blocks_replay`.
+//! - Negative auth tests cover NotInitialized, Unauthorized, and AppOwnerMismatch cases.
 
 extern crate std;
 
@@ -312,6 +313,7 @@ fn rejects_malformed_vk_before_pairing() {
         c: zero_g1(&env),
     };
     let pub_signals = Vec::from_array(&env, [Bn254Fr::from_u256(U256::from_u32(&env, 33))]);
+    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -319,14 +321,204 @@ fn rejects_malformed_vk_before_pairing() {
             app_id.clone(),
             subject.clone(),
             bytes32(&env, 0),
-            bytes32(&env, 6),
+            pub_inputs_hash.clone(),
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
-            claims(33, 566, true),
+            garbage_claims(),
         )
     });
-    assert_eq!(result, Err(IdentityError::PublicInputsHashMismatch));
+    assert_eq!(result, Err(IdentityError::MalformedVerifyingKey));
+}
+
+#[test]
+fn not_initialized_blocks_stateful_operations() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+
+    let _admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let subject = Address::generate(&env);
+    let app_id = Symbol::new(&env, "notinit");
+
+    let uninitialized = env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner: owner.clone(),
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    });
+    assert_eq!(uninitialized, Err(IdentityError::NotInitialized));
+
+    let verify_uninitialized = env.as_contract(&contract_id, || {
+        StellarIdentityCore::verify_and_record(
+            env.clone(),
+            app_id.clone(),
+            subject.clone(),
+            bytes32(&env, 0),
+            bytes32(&env, 1),
+            VerificationKey {
+                alpha: zero_g1(&env),
+                beta: zero_g2(&env),
+                gamma: zero_g2(&env),
+                delta: zero_g2(&env),
+                ic: Vec::from_array(&env, [zero_g1(&env)]),
+            },
+            Proof {
+                a: zero_g1(&env),
+                b: zero_g2(&env),
+                c: zero_g1(&env),
+            },
+            Vec::from_array(&env, [Bn254Fr::from_u256(U256::from_u32(&env, 25))]),
+            claims(25, 840, true),
+        )
+    });
+    assert_eq!(verify_uninitialized, Err(IdentityError::NotInitialized));
+
+    let attested_uninitialized = env.as_contract(&contract_id, || {
+        StellarIdentityCore::record_attested_result(
+            env.clone(),
+            prover.clone(),
+            app_id.clone(),
+            subject.clone(),
+            bytes32(&env, 1),
+            bytes32(&env, 2),
+            bytes32(&env, 3),
+            claims(25, 840, true),
+        )
+    });
+    assert_eq!(attested_uninitialized, Err(IdentityError::NotInitialized));
+
+    let revoke_uninitialized = env.as_contract(&contract_id, || {
+        StellarIdentityCore::revoke_app(env.clone(), app_id.clone())
+    });
+    assert_eq!(revoke_uninitialized, Err(IdentityError::NotInitialized));
+
+    let update_uninitialized = env.as_contract(&contract_id, || {
+        StellarIdentityCore::update_app_policy(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner,
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    });
+    assert_eq!(update_uninitialized, Err(IdentityError::NotInitialized));
+}
+
+#[test]
+fn unauthorized_prover_blocks_attested_path() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+
+    let admin = Address::generate(&env);
+    let configured_prover = Address::generate(&env);
+    let wrong_prover = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let subject = Address::generate(&env);
+    let app_id = Symbol::new(&env, "wrongprover");
+
+    emit_init(&env, &contract_id, &admin, &configured_prover);
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner,
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    })
+    .unwrap();
+
+    let wrong_prover_result = env.as_contract(&contract_id, || {
+        StellarIdentityCore::record_attested_result(
+            env.clone(),
+            wrong_prover.clone(),
+            app_id.clone(),
+            subject.clone(),
+            bytes32(&env, 1),
+            bytes32(&env, 2),
+            bytes32(&env, 3),
+            claims(25, 840, true),
+        )
+    });
+    assert_eq!(wrong_prover_result, Err(IdentityError::Unauthorized));
+}
+
+#[test]
+fn app_owner_mismatch_blocks_policy_update() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    let original_owner = Address::generate(&env);
+    let wrong_owner = Address::generate(&env);
+    let app_id = Symbol::new(&env, "ownerchange");
+
+    emit_init(&env, &contract_id, &admin, &prover);
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner: original_owner.clone(),
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    })
+    .unwrap();
+
+    let owner_mismatch = env.as_contract(&contract_id, || {
+        StellarIdentityCore::update_app_policy(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner: wrong_owner,
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    });
+    assert_eq!(owner_mismatch, Err(IdentityError::AppOwnerMismatch));
 }
 
 #[test]

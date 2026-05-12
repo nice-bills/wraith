@@ -1,7 +1,16 @@
 pragma circom 2.2.3;
 
+// DEMO-ONLY CIRCUIT - NOT PRODUCTION SOUND
+// This circuit is for testing/development purposes only.
+// Known issues:
+// - Line 57: "This is wrong - we need proper GE" - GreaterEqThan is incorrect
+// - No proper range checks on age
+// - No real passport document verification
+// - No cryptographic humanity proof validation
+// DO NOT use for real identity verification without proper circuit audit.
+
 // Signal operations only - no external libraries needed
-// We'll use a simplified approach for demo purposes
+// Simplified approach for demo purposes only
 
 template IsEqual() {
     signal input in[2];

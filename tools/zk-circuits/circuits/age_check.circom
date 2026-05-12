@@ -1,7 +1,12 @@
 pragma circom 2.2.3;
 
-// Simple age verification circuit
-// Proves: age >= 18 AND nationality is allowed AND passport is valid
+// DEMO-ONLY CIRCUIT - NOT PRODUCTION SOUND
+// This circuit is for testing/development purposes only.
+// It contains simplified arithmetic checks that are NOT cryptographically sound:
+// - IsZero uses field arithmetic, not proper boolean constraints
+// - GreaterThan/GreaterEqThan are simplified and may not hold over BN254 field
+// - No proper range checks on age or nationality values
+// DO NOT use for real identity verification without proper circuit audit.
 
 template IsZero() {
     signal input in;

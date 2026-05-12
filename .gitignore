@@ -2,3 +2,13 @@ target/
 node_modules/
 dist/
 
+# ZK proving artifacts
+tools/zk-circuits/build/
+tools/zk-circuits/proof/
+*.zkey
+*.ptau
+*.r1cs
+*.sym
+*.json
+!.json
+

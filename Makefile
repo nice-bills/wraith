@@ -13,5 +13,5 @@ build-all:
 	./scripts/build-all.sh
 
 smoke:
-	./scripts/e2e-smoke.sh
+	./scripts/adapter-smoke.sh
 
