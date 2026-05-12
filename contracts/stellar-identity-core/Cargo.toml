@@ -9,10 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e1bf74ba6c3ddb591593f5eb5dfb85458ff714c1" }
 
-[profile.release]
-opt-level = 3
-lto = "thin"
-overflow-checks = true
+
 
 [dev-dependencies]
 soroban-sdk = { git = "https://github.com/stellar/rs-soroban-sdk", rev = "e1bf74ba6c3ddb591593f5eb5dfb85458ff714c1", features = ["testutils"] }

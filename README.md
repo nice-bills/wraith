@@ -76,7 +76,16 @@ npm install
 npm run build
 ```
 
-### 4) One-command local build
+### 4) Adapter payload smoke test
+
+```bash
+cd /home/bills/code/wraith
+make smoke
+```
+
+This runs `scripts/adapter-smoke.sh`, which verifies fixture-to-payload conversion only. It does not submit a transaction or call `verify_and_record`.
+
+### 5) One-command local build
 
 ```bash
 cd /home/bills/code/wraith

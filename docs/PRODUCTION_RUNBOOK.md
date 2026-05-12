@@ -42,10 +42,18 @@ For production use, replace with properly audited circuits using real range chec
 3. **Adapter Conversion**: `cargo run -p proof-adapter` to transform proof to contract format
 4. **Submission**: stellar-cli contract invoke --send=yes verify_and_record
 
-## SDK Usage
+## Smoke Tests
 
 ```bash
-# Read-only smoke test (no writes)
+# Adapter payload smoke test (no chain writes)
+make smoke
+```
+
+`make smoke` runs `scripts/adapter-smoke.sh` and only validates fixture-to-payload conversion.
+
+```bash
+# Read-only contract smoke test (no writes)
+cd sdk/stellar-identity-sdk
 CONTRACT_ID=<contract_id> node smoke-test.mjs
 ```
 

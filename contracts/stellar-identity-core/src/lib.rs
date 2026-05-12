@@ -266,9 +266,15 @@ impl StellarIdentityCore {
         Self::read_admin(&env)?;
         let policy = Self::get_policy_required(&env, app_id.clone())?;
         policy.owner.require_auth();
-        env.storage().persistent().remove(&DataKey::AppPolicy(app_id.clone()));
-        env.storage().persistent().remove(&DataKey::AppVkHash(app_id.clone()));
-        env.storage().persistent().remove(&DataKey::AppApproved(app_id.clone()));
+        env.storage()
+            .persistent()
+            .remove(&DataKey::AppPolicy(app_id.clone()));
+        env.storage()
+            .persistent()
+            .remove(&DataKey::AppVkHash(app_id.clone()));
+        env.storage()
+            .persistent()
+            .remove(&DataKey::AppApproved(app_id.clone()));
         let owner = policy.owner.clone();
         AppRevoked {
             app_id: app_id.clone(),
@@ -305,7 +311,12 @@ impl StellarIdentityCore {
         subject.require_auth();
         let policy = Self::get_policy_required(&env, app_id.clone())?;
         Self::ensure_unused_nullifier(&env, app_id.clone(), nullifier.clone())?;
-        Self::ensure_subject_unverified(&env, app_id.clone(), subject.clone(), policy.expiration_window)?;
+        Self::ensure_subject_unverified(
+            &env,
+            app_id.clone(),
+            subject.clone(),
+            policy.expiration_window,
+        )?;
 
         let computed_pub_inputs_hash = Self::compute_pub_signals_hash(&env, &pub_signals);
         if public_inputs_hash != computed_pub_inputs_hash {
@@ -320,7 +331,8 @@ impl StellarIdentityCore {
             Self::check_sanctions(&env, &policy, &derived_claims)?;
         }
 
-        let stored_vk_hash = Self::get_vk_hash(env.clone(), app_id.clone()).ok_or(IdentityError::VkNotRegistered)?;
+        let stored_vk_hash =
+            Self::get_vk_hash(env.clone(), app_id.clone()).ok_or(IdentityError::VkNotRegistered)?;
         let computed_vk_hash = Self::compute_vk_hash(&env, &vk);
         if stored_vk_hash != computed_vk_hash {
             return Err(IdentityError::VkMismatch);
@@ -380,7 +392,12 @@ impl StellarIdentityCore {
             Self::check_sanctions(&env, &policy, &claims)?;
         }
         Self::ensure_unused_nullifier(&env, app_id.clone(), nullifier.clone())?;
-        Self::ensure_subject_unverified(&env, app_id.clone(), subject.clone(), policy.expiration_window)?;
+        Self::ensure_subject_unverified(
+            &env,
+            app_id.clone(),
+            subject.clone(),
+            policy.expiration_window,
+        )?;
 
         let source = VerificationSource::AttestedProver(attestation_hash.clone());
         let record = VerificationRecord {
@@ -411,8 +428,15 @@ impl StellarIdentityCore {
     pub fn is_verified(env: Env, app_id: Symbol, subject: Address) -> bool {
         // NOTE: Returns false for unregistered apps, unverified subjects, and expired records.
         // Callers should use get_record to distinguish "not verified yet" from other states.
-        let key = SubjectKey { app_id: app_id.clone(), subject };
-        let record = match env.storage().persistent().get::<_, VerificationRecord>(&DataKey::Record(key)) {
+        let key = SubjectKey {
+            app_id: app_id.clone(),
+            subject,
+        };
+        let record = match env
+            .storage()
+            .persistent()
+            .get::<_, VerificationRecord>(&DataKey::Record(key))
+        {
             Some(r) => r,
             None => return false,
         };
@@ -423,16 +447,28 @@ impl StellarIdentityCore {
         if policy.expiration_window == 0 {
             return true;
         }
-        let elapsed = env.ledger().sequence().saturating_sub(record.verified_ledger);
+        let elapsed = env
+            .ledger()
+            .sequence()
+            .saturating_sub(record.verified_ledger);
         elapsed <= policy.expiration_window
     }
 
     pub fn get_record(env: Env, app_id: Symbol, subject: Address) -> Option<VerificationRecord> {
-        let key = SubjectKey { app_id: app_id.clone(), subject };
-        let record = env.storage().persistent().get::<_, VerificationRecord>(&DataKey::Record(key))?;
+        let key = SubjectKey {
+            app_id: app_id.clone(),
+            subject,
+        };
+        let record = env
+            .storage()
+            .persistent()
+            .get::<_, VerificationRecord>(&DataKey::Record(key))?;
         let policy = Self::get_policy(env.clone(), app_id)?;
         if policy.expiration_window > 0 {
-            let elapsed = env.ledger().sequence().saturating_sub(record.verified_ledger);
+            let elapsed = env
+                .ledger()
+                .sequence()
+                .saturating_sub(record.verified_ledger);
             if elapsed > policy.expiration_window {
                 return None;
             }
@@ -512,9 +548,10 @@ impl StellarIdentityCore {
     }
 
     fn store_record(env: &Env, record: VerificationRecord) -> Result<(), IdentityError> {
-        env.storage()
-            .persistent()
-            .set(&DataKey::Nullifier(record.app_id.clone(), record.nullifier.clone()), &true);
+        env.storage().persistent().set(
+            &DataKey::Nullifier(record.app_id.clone(), record.nullifier.clone()),
+            &true,
+        );
         let key = SubjectKey {
             app_id: record.app_id.clone(),
             subject: record.subject.clone(),
@@ -525,7 +562,11 @@ impl StellarIdentityCore {
         Ok(())
     }
 
-    fn check_sanctions(_env: &Env, _policy: &AppPolicy, _claims: &AttestedClaims) -> Result<(), IdentityError> {
+    fn check_sanctions(
+        _env: &Env,
+        _policy: &AppPolicy,
+        _claims: &AttestedClaims,
+    ) -> Result<(), IdentityError> {
         // FAIL-SAFE: sanctions_enabled:true always fails until real circuit integration exists.
         // This prevents a dangerous illusion of protection — enabling sanctions_enabled:true
         // WITHOUT a bound circuit proof should never silently pass.
@@ -547,7 +588,11 @@ impl StellarIdentityCore {
             .ok_or(IdentityError::AppNotFound)
     }
 
-    fn ensure_unused_nullifier(env: &Env, app_id: Symbol, nullifier: BytesN<32>) -> Result<(), IdentityError> {
+    fn ensure_unused_nullifier(
+        env: &Env,
+        app_id: Symbol,
+        nullifier: BytesN<32>,
+    ) -> Result<(), IdentityError> {
         if env
             .storage()
             .persistent()
@@ -565,14 +610,18 @@ impl StellarIdentityCore {
         expiration_window: u32,
     ) -> Result<(), IdentityError> {
         let key = SubjectKey { app_id, subject };
-        let record: VerificationRecord = match env.storage().persistent().get(&DataKey::Record(key)) {
+        let record: VerificationRecord = match env.storage().persistent().get(&DataKey::Record(key))
+        {
             Some(r) => r,
             None => return Ok(()),
         };
         if expiration_window == 0 {
             return Err(IdentityError::SubjectAlreadyVerified);
         }
-        let elapsed = env.ledger().sequence().saturating_sub(record.verified_ledger);
+        let elapsed = env
+            .ledger()
+            .sequence()
+            .saturating_sub(record.verified_ledger);
         if elapsed <= expiration_window {
             return Err(IdentityError::SubjectAlreadyVerified);
         }
@@ -618,7 +667,9 @@ impl StellarIdentityCore {
         hash.into()
     }
 
-    fn derive_claims_from_signals(pub_signals: &Vec<Bn254Fr>) -> Result<AttestedClaims, IdentityError> {
+    fn derive_claims_from_signals(
+        pub_signals: &Vec<Bn254Fr>,
+    ) -> Result<AttestedClaims, IdentityError> {
         if pub_signals.len() < 3 {
             return Err(IdentityError::MalformedVerifyingKey);
         }
@@ -653,7 +704,10 @@ impl StellarIdentityCore {
         })
     }
 
-    fn verify_claims_match(derived: &AttestedClaims, supplied: &AttestedClaims) -> Result<(), IdentityError> {
+    fn verify_claims_match(
+        derived: &AttestedClaims,
+        supplied: &AttestedClaims,
+    ) -> Result<(), IdentityError> {
         if derived.age != supplied.age {
             return Err(IdentityError::PolicyViolation);
         }

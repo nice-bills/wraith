@@ -16,7 +16,7 @@ extern crate std;
 use soroban_sdk::{
     Address, BytesN, Env, Event, Symbol, U256, Vec,
     crypto::bn254::{Bn254Fr, Bn254G1Affine, Bn254G2Affine},
-    testutils::{Address as _, Events as _},
+    testutils::{Address as _, Events as _, Ledger as _},
 };
 
 use crate::{
@@ -42,7 +42,11 @@ fn zero_g2(env: &Env) -> Bn254G2Affine {
 }
 
 fn claims(age: u32, country_code: u32, is_human: bool) -> AttestedClaims {
-    AttestedClaims { age, country_code, is_human }
+    AttestedClaims {
+        age,
+        country_code,
+        is_human,
+    }
 }
 
 fn emit_init(env: &Env, contract_id: &Address, admin: &Address, prover: &Address) {
@@ -54,6 +58,12 @@ fn emit_init(env: &Env, contract_id: &Address, admin: &Address, prover: &Address
 
 fn event_vec(env: &Env) -> std::vec::Vec<soroban_sdk::xdr::ContractEvent> {
     env.events().all().events().to_vec()
+}
+
+fn set_ledger_sequence(env: &Env, sequence: u32) {
+    env.ledger().with_mut(|ledger| {
+        ledger.sequence_number = sequence;
+    });
 }
 
 #[test]
@@ -102,7 +112,13 @@ fn register_app_emits_event() {
 
     assert_eq!(
         event_vec(&env),
-        std::vec![AppRegistered { app_id: app_id.clone(), owner }.to_xdr(&env, &contract_id)]
+        std::vec![
+            AppRegistered {
+                app_id: app_id.clone(),
+                owner
+            }
+            .to_xdr(&env, &contract_id)
+        ]
     );
 }
 
@@ -139,7 +155,13 @@ fn app_lifecycle_emits_events() {
 
     assert_eq!(
         event_vec(&env),
-        std::vec![AppRegistered { app_id: app_id.clone(), owner: owner.clone() }.to_xdr(&env, &contract_id)]
+        std::vec![
+            AppRegistered {
+                app_id: app_id.clone(),
+                owner: owner.clone()
+            }
+            .to_xdr(&env, &contract_id)
+        ]
     );
 
     env.as_contract(&contract_id, || {
@@ -162,11 +184,19 @@ fn app_lifecycle_emits_events() {
 
     assert_eq!(
         event_vec(&env),
-        std::vec![AppUpdated { app_id: app_id.clone(), owner: owner.clone() }.to_xdr(&env, &contract_id)]
+        std::vec![
+            AppUpdated {
+                app_id: app_id.clone(),
+                owner: owner.clone()
+            }
+            .to_xdr(&env, &contract_id)
+        ]
     );
 
-    env.as_contract(&contract_id, || StellarIdentityCore::revoke_app(env.clone(), app_id.clone()))
-        .unwrap();
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::revoke_app(env.clone(), app_id.clone())
+    })
+    .unwrap();
 
     assert_eq!(
         event_vec(&env),
@@ -206,30 +236,36 @@ fn record_attested_result_emits_event_and_blocks_replay() {
     })
     .unwrap();
 
-    let record = env.as_contract(&contract_id, || {
-        StellarIdentityCore::record_attested_result(
-            env.clone(),
-            prover.clone(),
-            app_id.clone(),
-            subject.clone(),
-            nullifier.clone(),
-            bytes32(&env, 4),
-            bytes32(&env, 5),
-            claims(22, 566, true),
-        )
-    })
-    .unwrap();
+    let record = env
+        .as_contract(&contract_id, || {
+            StellarIdentityCore::record_attested_result(
+                env.clone(),
+                prover.clone(),
+                app_id.clone(),
+                subject.clone(),
+                nullifier.clone(),
+                bytes32(&env, 4),
+                bytes32(&env, 5),
+                claims(22, 566, true),
+            )
+        })
+        .unwrap();
 
-    assert_eq!(record.source, VerificationSource::AttestedProver(bytes32(&env, 5)));
+    assert_eq!(
+        record.source,
+        VerificationSource::AttestedProver(bytes32(&env, 5))
+    );
     assert_eq!(
         event_vec(&env),
-        std::vec![VerificationRecorded {
-            app_id: app_id.clone(),
-            subject: subject.clone(),
-            nullifier: nullifier.clone(),
-            source: VerificationSource::AttestedProver(bytes32(&env, 5)),
-        }
-        .to_xdr(&env, &contract_id)]
+        std::vec![
+            VerificationRecorded {
+                app_id: app_id.clone(),
+                subject: subject.clone(),
+                nullifier: nullifier.clone(),
+                source: VerificationSource::AttestedProver(bytes32(&env, 5)),
+            }
+            .to_xdr(&env, &contract_id)
+        ]
     );
 
     let replay = env.as_contract(&contract_id, || {
@@ -265,7 +301,13 @@ fn set_prover_emits_update_event() {
 
     assert_eq!(
         event_vec(&env),
-        std::vec![ProverUpdated { previous: prover, current: next_prover }.to_xdr(&env, &contract_id)]
+        std::vec![
+            ProverUpdated {
+                previous: prover,
+                current: next_prover
+            }
+            .to_xdr(&env, &contract_id)
+        ]
     );
 }
 
@@ -606,7 +648,10 @@ fn blocks_policy_violations_and_duplicate_subjects() {
             claims(30, 840, true),
         )
     });
-    assert_eq!(duplicate_subject, Err(IdentityError::SubjectAlreadyVerified));
+    assert_eq!(
+        duplicate_subject,
+        Err(IdentityError::SubjectAlreadyVerified)
+    );
 }
 
 fn garbage_claims() -> AttestedClaims {
@@ -660,11 +705,14 @@ fn verify_and_record_requires_vk_hash() {
         b: zero_g2(&env),
         c: zero_g1(&env),
     };
-    let pub_signals = Vec::from_array(&env, [
-        Bn254Fr::from_u256(U256::from_u32(&env, 25)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 840)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 1)),
-    ]);
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            Bn254Fr::from_u256(U256::from_u32(&env, 25)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+        ],
+    );
     let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
 
     let result = env.as_contract(&contract_id, || {
@@ -789,6 +837,120 @@ fn revoke_app_preserves_records_and_nullifiers() {
 }
 
 #[test]
+fn expired_records_can_refresh_with_fresh_nullifier() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let subject = Address::generate(&env);
+    let app_id = Symbol::new(&env, "expires");
+    let original_nullifier = bytes32(&env, 21);
+    let refresh_nullifier = bytes32(&env, 22);
+
+    emit_init(&env, &contract_id, &admin, &prover);
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner,
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 1),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 1,
+                sanctions_enabled: false,
+            },
+            None,
+        )
+    })
+    .unwrap();
+
+    set_ledger_sequence(&env, 10);
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::record_attested_result(
+            env.clone(),
+            prover.clone(),
+            app_id.clone(),
+            subject.clone(),
+            original_nullifier.clone(),
+            bytes32(&env, 8),
+            bytes32(&env, 9),
+            claims(30, 840, true),
+        )
+    })
+    .unwrap();
+
+    set_ledger_sequence(&env, 11);
+    let still_verified = env.as_contract(&contract_id, || {
+        StellarIdentityCore::is_verified(env.clone(), app_id.clone(), subject.clone())
+    });
+    assert!(still_verified);
+
+    set_ledger_sequence(&env, 12);
+    let expired = env.as_contract(&contract_id, || {
+        StellarIdentityCore::is_verified(env.clone(), app_id.clone(), subject.clone())
+    });
+    assert!(!expired);
+
+    let expired_record = env.as_contract(&contract_id, || {
+        StellarIdentityCore::get_record(env.clone(), app_id.clone(), subject.clone())
+    });
+    assert!(expired_record.is_none());
+
+    let original_nullifier_burned = env.as_contract(&contract_id, || {
+        StellarIdentityCore::has_nullifier(env.clone(), app_id.clone(), original_nullifier.clone())
+    });
+    assert!(original_nullifier_burned);
+
+    let old_nullifier_reuse = env.as_contract(&contract_id, || {
+        StellarIdentityCore::record_attested_result(
+            env.clone(),
+            prover.clone(),
+            app_id.clone(),
+            subject.clone(),
+            original_nullifier.clone(),
+            bytes32(&env, 8),
+            bytes32(&env, 9),
+            claims(30, 840, true),
+        )
+    });
+    assert_eq!(
+        old_nullifier_reuse,
+        Err(IdentityError::NullifierAlreadyUsed)
+    );
+
+    env.as_contract(&contract_id, || {
+        StellarIdentityCore::record_attested_result(
+            env.clone(),
+            prover.clone(),
+            app_id.clone(),
+            subject.clone(),
+            refresh_nullifier.clone(),
+            bytes32(&env, 10),
+            bytes32(&env, 11),
+            claims(30, 840, true),
+        )
+    })
+    .unwrap();
+
+    let refreshed = env.as_contract(&contract_id, || {
+        StellarIdentityCore::is_verified(env.clone(), app_id.clone(), subject.clone())
+    });
+    assert!(refreshed);
+
+    let refreshed_record = env
+        .as_contract(&contract_id, || {
+            StellarIdentityCore::get_record(env.clone(), app_id.clone(), subject.clone())
+        })
+        .unwrap();
+    assert_eq!(refreshed_record.nullifier, refresh_nullifier);
+}
+
+#[test]
 fn revoke_clears_approval_state() {
     let env = Env::default();
     env.mock_all_auths();
@@ -886,11 +1048,14 @@ fn verify_and_record_rejects_vk_mismatch() {
         b: zero_g2(&env),
         c: zero_g1(&env),
     };
-    let pub_signals = Vec::from_array(&env, [
-        Bn254Fr::from_u256(U256::from_u32(&env, 25)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 840)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 1)),
-    ]);
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            Bn254Fr::from_u256(U256::from_u32(&env, 25)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+        ],
+    );
     let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
 
     let result = env.as_contract(&contract_id, || {
@@ -952,11 +1117,14 @@ fn verify_and_record_rejects_claim_mismatch() {
         b: zero_g2(&env),
         c: zero_g1(&env),
     };
-    let pub_signals = Vec::from_array(&env, [
-        Bn254Fr::from_u256(U256::from_u32(&env, 25)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 840)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 1)),
-    ]);
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            Bn254Fr::from_u256(U256::from_u32(&env, 25)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+        ],
+    );
     let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
 
     let result = env.as_contract(&contract_id, || {
@@ -1010,10 +1178,11 @@ fn app_approval_mode_blocks_registration() {
         StellarIdentityCore::set_app_approval(env.clone(), app_id.clone(), true).unwrap()
     });
 
-    let registered = env.as_contract(&contract_id, || {
-        StellarIdentityCore::register_app(env.clone(), app_id.clone(), policy.clone(), None)
-    })
-    .unwrap();
+    let registered = env
+        .as_contract(&contract_id, || {
+            StellarIdentityCore::register_app(env.clone(), app_id.clone(), policy.clone(), None)
+        })
+        .unwrap();
     assert_eq!(registered.owner, policy.owner);
 }
 
@@ -1060,11 +1229,14 @@ fn sanctions_stub_rejects_zero_root() {
         b: zero_g2(&env),
         c: zero_g1(&env),
     };
-    let pub_signals = Vec::from_array(&env, [
-        Bn254Fr::from_u256(U256::from_u32(&env, 25)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 840)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 1)),
-    ]);
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            Bn254Fr::from_u256(U256::from_u32(&env, 25)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+        ],
+    );
     let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
 
     let result = env.as_contract(&contract_id, || {
@@ -1126,11 +1298,14 @@ fn sanctions_failsafe_blocks_with_nonzero_root() {
         b: zero_g2(&env),
         c: zero_g1(&env),
     };
-    let pub_signals = Vec::from_array(&env, [
-        Bn254Fr::from_u256(U256::from_u32(&env, 25)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 840)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 1)),
-    ]);
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            Bn254Fr::from_u256(U256::from_u32(&env, 25)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+        ],
+    );
     let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
 
     let result = env.as_contract(&contract_id, || {
@@ -1192,11 +1367,14 @@ fn with_sanctions_disabled_vk_mismatch_is_reached() {
         b: zero_g2(&env),
         c: zero_g1(&env),
     };
-    let pub_signals = Vec::from_array(&env, [
-        Bn254Fr::from_u256(U256::from_u32(&env, 25)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 840)),
-        Bn254Fr::from_u256(U256::from_u32(&env, 1)),
-    ]);
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            Bn254Fr::from_u256(U256::from_u32(&env, 25)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+        ],
+    );
     let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
 
     let result = env.as_contract(&contract_id, || {
