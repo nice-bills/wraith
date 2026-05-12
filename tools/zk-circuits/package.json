@@ -1,0 +1,16 @@
+{
+  "name": "wraith-zk-circuits",
+  "version": "0.1.0",
+  "description": "ZK circuits for Wraith Identity Core - production integration",
+  "scripts": {
+    "setup": "npm install && npm run setup:rarimo",
+    "setup:rarimo": "git submodule update --init --recursive && cd rarimo && npm install",
+    "build:demo": "circom circuits/age_check.circom --r1cs --wasm --sym -o build && circom circuits/passport_verifier.circom --r1cs --wasm --sym -o build && circom circuits/simple_mult.circom --r1cs --wasm --sym -o build",
+    "build:production": "cd rarimo && npm run compile",
+    "trusted-setup": "bash setup-trusted-setup.sh",
+    "test": "cd rarimo && npm run test"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5"
+  }
+}

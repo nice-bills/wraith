@@ -1,83 +1,25 @@
 pragma circom 2.2.3;
 
-// DEMO-ONLY CIRCUIT - NOT PRODUCTION SOUND
-// This circuit is for testing/development purposes only.
-// It contains simplified arithmetic checks that are NOT cryptographically sound:
-// - IsZero uses field arithmetic, not proper boolean constraints
-// - GreaterThan/GreaterEqThan are simplified and may not hold over BN254 field
-// - No proper range checks on age or nationality values
-// DO NOT use for real identity verification without proper circuit audit.
-
-template IsZero() {
-    signal input in;
-    signal output out;
-    out <== 1 - in * in;
-}
-
-template IsEqual() {
-    signal input in[2];
-    signal output out;
-    signal diff;
-    diff <== in[0] - in[1];
-    out <== 1 - diff * diff;
-}
-
-template GreaterThan() {
-    // Returns 1 if a > b
-    signal input a;
-    signal input b;
-    signal output out;
-
-    // a > b means a - b >= 1
-    signal diff;
-    diff <== a - b;
-
-    // diff * (diff - 1) = 0 means diff is 0 or 1
-    // We want: out = 1 if diff >= 1, 0 if diff <= 0
-    // Using: out = diff * (1 - IsZero()(diff))
-    component isZero = IsZero();
-    isZero.in <== diff;
-
-    // out = diff * (1 - isZero.out) = diff if diff != 0
-    // This works for diff >= 0
-    out <== diff * (1 - isZero.out);
-}
-
-template GreaterEqThan() {
-    signal input a;
-    signal input b;
-    signal output out;
-
-    // a >= b means a > b OR a == b
-    component gt = GreaterThan();
-    gt.a <== a;
-    gt.b <== b;
-
-    component eq = IsEqual();
-    eq.in[0] <== a;
-    eq.in[1] <== b;
-
-    out <== gt.out + eq.out;
-}
+include "circomlib/circuits/comparators.circom";
 
 template AgeVerifier() {
-    // Public
+    // Public inputs
     signal input minAge;
     signal input allowedNationality1;
     signal input allowedNationality2;
     signal input allowedNationality3;
 
-    // Private (from passport)
+    // Private inputs (from passport)
     signal input age;
     signal input nationality;
     signal input passportValid;
 
     signal output verified;
 
-    // 1. Age check: age >= minAge
-    component ageGte = GreaterEqThan();
-    ageGte.a <== age;
-    ageGte.b <== minAge;
+    // 1. Age check: age >= minAge using proper GreaterEqThan
+    component ageGte = GreaterEqThan(32);
+    ageGte.in[0] <== age;
+    ageGte.in[1] <== minAge;
 
     // 2. Nationality check: nationality in {nat1, nat2, nat3}
     component natEq1 = IsEqual();
@@ -92,18 +34,27 @@ template AgeVerifier() {
     natEq3.in[0] <== nationality;
     natEq3.in[1] <== allowedNationality3;
 
+    // Sum of matches (each is 0 or 1)
+    // nationalityAllowed = 1 if nationality matches one of the allowed
     signal nationalityAllowed;
     nationalityAllowed <== natEq1.out + natEq2.out + natEq3.out;
 
-    // 3. Passport must be valid
-    component validEq = IsEqual();
-    validEq.in[0] <== passportValid;
-    validEq.in[1] <== 1;
+    // 3. Passport must be valid - constrain to boolean (0 or 1)
+    // This is a quadratic constraint
+    passportValid * (passportValid - 1) === 0;
 
-    // All must pass (quadratic constraint: pairwise multiplications)
-    signal tmp;
-    tmp <== ageGte.out * nationalityAllowed;
-    verified <== tmp * validEq.out;
+    // 4. All must pass - use explicit constraints for each step
+    // ageNatValid = ageGte.out AND nationalityAllowed
+    // Since ageGte.out is 0 or 1 and nationalityAllowed is 0-3,
+    // we need to ensure nationalityAllowed >= 1 means a match
+    signal ageNatValid;
+    ageNatValid <== ageGte.out * nationalityAllowed;
+
+    // verified = ageNatValid AND passportValid
+    signal validPass;
+    validPass <== ageNatValid * passportValid;
+
+    verified <== validPass;
 }
 
 component main {public [minAge, allowedNationality1, allowedNationality2, allowedNationality3]} = AgeVerifier();

@@ -6,6 +6,9 @@ use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+mod rarimo_transformer;
+use rarimo_transformer::RarimoPublicSignals;
+
 #[derive(Parser, Debug)]
 #[command(
     name = "proof-adapter",
@@ -26,6 +29,10 @@ struct Cli {
     country_index: Option<usize>,
     #[arg(long)]
     humanity_index: Option<usize>,
+    #[arg(long)]
+    rarimo_mode: bool,
+    #[arg(long)]
+    current_date: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -90,12 +97,35 @@ fn main() -> Result<()> {
     let public_signals: Value = read_json_file(&cli.public)?;
 
     let public_signals_decimals = parse_public_signals(&public_signals)?;
-    let claims = derive_claims(
-        &public_signals_decimals,
-        cli.age_index,
-        cli.country_index,
-        cli.humanity_index,
-    )?;
+
+    let (output_public_signals, claims) = if cli.rarimo_mode {
+        let current_date = cli.current_date.unwrap_or_else(|| {
+            chrono::Local::now().format("%y%m%d").to_string()
+        });
+
+        let rarimo_signals = RarimoPublicSignals::from_query_output(&public_signals_decimals)
+            .context("failed to parse rarimo signals")?;
+
+        let wraith_claims = rarimo_signals
+            .to_wraith_claims(&current_date)
+            .context("failed to derive wraith claims from rarimo signals")?;
+
+        let claims_payload = ClaimsPayload {
+            age: wraith_claims.age,
+            country_code: wraith_claims.country_code,
+            is_human: wraith_claims.is_human,
+        };
+
+        (wraith_claims.to_public_signals(), Some(claims_payload))
+    } else {
+        let claims = derive_claims(
+            &public_signals_decimals,
+            cli.age_index,
+            cli.country_index,
+            cli.humanity_index,
+        )?;
+        (public_signals_decimals.clone(), claims)
+    };
 
     let output = AdapterOutput {
         proof: ProofPayload {
@@ -110,7 +140,7 @@ fn main() -> Result<()> {
             delta: encode_g2(&vk.vk_delta_2).context("failed to parse vk_delta_2")?,
             ic: encode_ic(&vk.ic).context("failed to parse IC")?,
         },
-        public_signals_decimals,
+        public_signals_decimals: output_public_signals,
         claims,
     };
 

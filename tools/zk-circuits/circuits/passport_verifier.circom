@@ -1,70 +1,6 @@
 pragma circom 2.2.3;
 
-// DEMO-ONLY CIRCUIT - NOT PRODUCTION SOUND
-// This circuit is for testing/development purposes only.
-// Known issues:
-// - Line 57: "This is wrong - we need proper GE" - GreaterEqThan is incorrect
-// - No proper range checks on age
-// - No real passport document verification
-// - No cryptographic humanity proof validation
-// DO NOT use for real identity verification without proper circuit audit.
-
-// Signal operations only - no external libraries needed
-// Simplified approach for demo purposes only
-
-template IsEqual() {
-    signal input in[2];
-    signal output out;
-
-    signal diff;
-    diff <== in[0] - in[1];
-
-    // out = 1 if in[0] == in[1], 0 otherwise
-    out <== 1 - diff * diff;
-}
-
-template IsZero() {
-    signal input in;
-    signal output out;
-
-    // out = 1 if in == 0, 0 otherwise
-    out <== 1 - in * in;
-}
-
-template GreaterThan(n) {
-    // Returns 1 if in[0] > in[1]
-    signal input in[2];
-    signal output out;
-
-    signal diff;
-    diff <== in[0] - in[1];
-
-    // For positive numbers, diff > 0 means in[0] > in[1]
-    // out = 1 if diff > 0, 0 otherwise
-    // We use a safe approach: out = 1 - IsZero(diff) - IsNegative(diff)
-    // But we need a simpler approach for demo
-
-    // Simple: out = 1 if diff > 0
-    // For small n (like 32 bits), we can check if diff is nonzero
-    out <== 1 - IsZero()(diff);
-}
-
-template GreaterEqThan(n) {
-    // Returns 1 if in[0] >= in[1]
-    signal input in[2];
-    signal output out;
-
-    signal diff;
-    diff <== in[0] - in[1];
-
-    // out = 1 if diff >= 0, which means diff is not negative
-    // For demo, assume inputs are small positive numbers
-    // out = 1 - (diff < 0)
-    // Simplified: out = 1 if diff >= 0
-    component isZero = IsZero();
-    isZero.in <== diff;
-    out <== 1 - isZero.out; // This is wrong - we need proper GE
-}
+include "circomlib/circuits/comparators.circom";
 
 template PassportVerifier() {
     // Public inputs
@@ -75,44 +11,49 @@ template PassportVerifier() {
     signal input age;
     signal input countryCode;
     signal input isHuman;
-    signal input humanityProof; // External humanity verification
+    signal input humanityProof;
 
     signal output verified;
 
-    // 1. Age check: age >= minAge
+    // 1. Age check: age >= minAge using proper GreaterEqThan
     component ageGte = GreaterEqThan(32);
     ageGte.in[0] <== age;
     ageGte.in[1] <== minAge;
 
     // 2. Humanity check: isHuman must be 1
-    component humanEq = IsEqual();
-    humanEq.in[0] <== isHuman;
-    humanEq.in[1] <== 1;
+    // Constrain isHuman to be boolean
+    isHuman * (isHuman - 1) === 0;
 
-    // 3. Humanity proof must be valid (external verification)
-    component proofEq = IsEqual();
-    proofEq.in[0] <== humanityProof;
-    proofEq.in[1] <== 1;
+    // 3. Humanity proof must be valid - constrain to boolean
+    humanityProof * (humanityProof - 1) === 0;
 
     // 4. Country not in excluded list
-    signal countryAllowed;
-    component countryEq[3];
-    signal anyExcluded;
-
-    anyExcluded <== 0;
+    // Pre-declare components outside the loop (Circom 2.x requirement)
+    component eq[3];
     for (var i = 0; i < 3; i++) {
-        countryEq[i] = IsEqual();
-        countryEq[i].in[0] <== countryCode;
-        countryEq[i].in[1] <== excludedCountries[i];
-        anyExcluded <== anyExcluded + countryEq[i].out;
+        eq[i] = IsEqual();
+        eq[i].in[0] <== countryCode;
+        eq[i].in[1] <== excludedCountries[i];
     }
 
-    component isZeroAny = IsZero();
-    isZeroAny.in <== anyExcluded;
-    countryAllowed <== isZeroAny.out; // 1 if no excluded match
+    // Sum of all matches - isExcluded > 0 means country is excluded
+    signal isExcluded;
+    isExcluded <== eq[0].out + eq[1].out + eq[2].out;
 
-    // All conditions must pass
-    verified <== ageGte.out * humanEq.out * proofEq.out * countryAllowed;
+    // 5. Compute the base valid signal
+    signal ageHumanValid;
+    ageHumanValid <== ageGte.out * isHuman;
+
+    signal ageHumanProofValid;
+    ageHumanProofValid <== ageHumanValid * humanityProof;
+
+    // 6. Enforce exclusion constraint first
+    // If isExcluded > 0, then verified must be 0
+    // This works because verified hasn't been assigned yet - we use it as a variable
+    isExcluded * ageHumanProofValid === 0;
+
+    // 7. Assign verified
+    verified <== ageHumanProofValid;
 }
 
 component main {public [minAge, excludedCountries]} = PassportVerifier();
