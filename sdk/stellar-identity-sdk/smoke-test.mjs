@@ -48,7 +48,7 @@ async function main() {
     console.log(`   ⚠ Could not fetch events: ${e.message}\n`);
   }
 
-  console.log("4. Testing getAdmin() via raw RPC...");
+  console.log("4. Testing contract responds to RPC...");
   try {
     const response = await fetch(FUTURENET_RPC, {
       method: "POST",
@@ -64,7 +64,6 @@ async function main() {
       }),
     });
     const data = await response.json();
-    console.log(`   Raw RPC response received`);
     console.log(`   ✓ Contract responds to RPC\n`);
   } catch (e) {
     console.log(`   ⚠ RPC test failed: ${e.message}\n`);
@@ -74,7 +73,7 @@ async function main() {
   console.log("Contract is deployed and accessible on Futurenet.");
   console.log("Contract ID:", CONTRACT_ID);
   console.log("\nUse stellar-cli to interact:");
-  console.log(`  stellar contract invoke --id ${CONTRACT_ID} --source-account bills-futurenet --network futurenet -- get-admin`);
+  console.log(`  stellar contract invoke --id ${CONTRACT_ID} --source-account <your-key> --network futurenet -- get-admin`);
 }
 
 main().catch((err) => {
