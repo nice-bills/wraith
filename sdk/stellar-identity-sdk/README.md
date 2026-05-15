@@ -40,12 +40,12 @@ interface AppPolicy {
 ## Build
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ## Test
 
 ```bash
-npm test
+pnpm test
 ```

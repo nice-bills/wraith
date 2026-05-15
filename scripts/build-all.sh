@@ -12,8 +12,8 @@ cargo build -p stellar-identity-core --target wasm32v1-none
 
 echo "[3/4] Building SDK"
 cd "$ROOT_DIR/sdk/stellar-identity-sdk"
-npm ci --silent
-npm run build --silent
+pnpm install --frozen-lockfile --silent
+pnpm run build --silent
 
 echo "[4/4] Build complete"
 echo "Contract WASM: $ROOT_DIR/target/wasm32v1-none/debug/stellar_identity_core.wasm"

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export type Hex = `0x${string}`;
 
 export type VerificationSource =
@@ -51,6 +53,7 @@ export interface VerificationPayload {
   publicInputsHash: Hex;
   vk: VerificationKeyInput;
   proof: ProofInput;
+  /** Hex-encoded Bn254Fr scalars (Soroban field encoding). */
   publicSignals: string[];
   claims: AttestedClaims;
 }
@@ -61,6 +64,19 @@ export interface AttestedPayload {
   publicInputsHash: Hex;
   attestationHash: Hex;
   claims: AttestedClaims;
+}
+
+/** Output shape from `proof-adapter`. */
+export interface AdapterOutput {
+  proof: ProofInput;
+  verification_key: VerificationKeyInput;
+  public_signals_decimals: string[];
+  public_signals_hex?: string[];
+  claims?: {
+    age: number;
+    country_code: number;
+    is_human: boolean;
+  };
 }
 
 export type InvokeContract = <T = unknown>(
@@ -210,6 +226,131 @@ export class StellarIdentityClient {
   }
 }
 
+/** Encode a u32 public signal as a Bn254Fr hex string (LE u32 in first 4 bytes). */
+export function decimalToBn254FrHex(decimal: string): Hex {
+  const n = BigInt(decimal);
+  if (n < 0n || n > 0xffff_ffffn) {
+    throw new Error(`public signal must fit u32, got ${decimal}`);
+  }
+  const buf = Buffer.alloc(32);
+  buf.writeUInt32LE(Number(n), 0);
+  return `0x${buf.toString("hex")}` as Hex;
+}
+
+/** SHA-256 over concatenated Bn254Fr field bytes (matches on-chain `compute_pub_signals_hash`). */
+export function computePublicInputsHash(publicSignalsHex: string[]): Hex {
+  if (!publicSignalsHex.length) {
+    throw new Error("publicSignalsHex cannot be empty.");
+  }
+  const parts = publicSignalsHex.map((signal, index) => {
+    if (!/^0x[0-9a-fA-F]+$/.test(signal)) {
+      throw new Error(`publicSignalsHex[${index}] must be hex.`);
+    }
+    return Buffer.from(signal.slice(2), "hex");
+  });
+  if (parts.some((part) => part.length !== 32)) {
+    throw new Error("each public signal must be 32 bytes.");
+  }
+  const digest = createHash("sha256").update(Buffer.concat(parts)).digest("hex");
+  return `0x${digest}` as Hex;
+}
+
+/** Canonical claims hash for the attested path. */
+export function computeAttestedClaimsHash(claims: AttestedClaims): Hex {
+  const buf = Buffer.alloc(12);
+  buf.writeUInt32LE(claims.age, 0);
+  buf.writeUInt32LE(claims.countryCode, 4);
+  buf.writeUInt32LE(claims.isHuman ? 1 : 0, 8);
+  const digest = createHash("sha256").update(buf).digest("hex");
+  return `0x${digest}` as Hex;
+}
+
+/**
+ * Build attestation hashes for `record_attested_result`.
+ * Pass Soroban XDR bytes for addresses/symbol (from stellar-cli or SDK encoding).
+ */
+export function computeAttestationHash(params: {
+  proverXdr: Buffer;
+  appIdXdr: Buffer;
+  subjectXdr: Buffer;
+  nullifier: Hex;
+  publicInputsHash: Hex;
+}): Hex {
+  const nullifierBytes = Buffer.from(params.nullifier.slice(2), "hex");
+  const pubHashBytes = Buffer.from(params.publicInputsHash.slice(2), "hex");
+  if (nullifierBytes.length !== 32 || pubHashBytes.length !== 32) {
+    throw new Error("nullifier and publicInputsHash must be 32 bytes.");
+  }
+  const digest = createHash("sha256")
+    .update(params.proverXdr)
+    .update(params.appIdXdr)
+    .update(params.subjectXdr)
+    .update(nullifierBytes)
+    .update(pubHashBytes)
+    .digest("hex");
+  return `0x${digest}` as Hex;
+}
+
+export function buildAttestedPayload(params: {
+  prover: string;
+  nullifier: Hex;
+  claims: AttestedClaims;
+  proverXdr: Buffer;
+  appIdXdr: Buffer;
+  subjectXdr: Buffer;
+}): AttestedPayload {
+  const publicInputsHash = computeAttestedClaimsHash(params.claims);
+  const attestationHash = computeAttestationHash({
+    proverXdr: params.proverXdr,
+    appIdXdr: params.appIdXdr,
+    subjectXdr: params.subjectXdr,
+    nullifier: params.nullifier,
+    publicInputsHash,
+  });
+  return {
+    prover: params.prover,
+    nullifier: params.nullifier,
+    publicInputsHash,
+    attestationHash,
+    claims: params.claims,
+  };
+}
+
+/** Convert proof-adapter JSON into a contract-ready verification payload. */
+export function fromAdapterPayload(
+  adapter: AdapterOutput,
+  nullifier: Hex,
+  options?: { publicInputsHash?: Hex },
+): VerificationPayload {
+  const decimals =
+    adapter.public_signals_hex?.length === adapter.public_signals_decimals.length
+      ? null
+      : adapter.public_signals_decimals;
+  const publicSignals =
+    adapter.public_signals_hex ??
+    (decimals ?? []).map((value) => decimalToBn254FrHex(value));
+  const publicInputsHash =
+    options?.publicInputsHash ?? computePublicInputsHash(publicSignals);
+  const claims = adapter.claims
+    ? {
+        age: adapter.claims.age,
+        countryCode: adapter.claims.country_code,
+        isHuman: adapter.claims.is_human,
+      }
+    : { age: 0, countryCode: 0, isHuman: false };
+  if (!adapter.claims) {
+    throw new Error("adapter output is missing claims.");
+  }
+  return {
+    nullifier,
+    publicInputsHash,
+    vk: adapter.verification_key,
+    proof: adapter.proof,
+    publicSignals,
+    claims,
+  };
+}
+
 export function normalizeHex32(input: string): Hex {
   const sanitized = input.startsWith("0x") ? input.slice(2) : input;
   if (!/^[0-9a-fA-F]*$/.test(sanitized)) {
@@ -221,36 +362,18 @@ export function normalizeHex32(input: string): Hex {
   return `0x${sanitized.padStart(64, "0").toLowerCase()}` as Hex;
 }
 
-export type JsonRpcTransport = (payload: unknown) => Promise<unknown>;
-
+/**
+ * @deprecated Use `InvokeContract` from your transaction builder (e.g. stellar-cli or @stellar/stellar-sdk Contract + rpc.Server.simulateTransaction).
+ * The previous `soroban.invoke` JSON-RPC method is not part of the standard Stellar API.
+ */
 export function createSorobanRpcInvoke(
-  contractId: string,
-  transport: JsonRpcTransport,
+  _contractId: string,
+  _transport: unknown,
 ): InvokeContract {
-  assertNonEmpty("contractId", contractId);
-  return async <T = unknown>(method: string, args: unknown[]): Promise<T> => {
-    assertNonEmpty("method", method);
-    const payload = {
-      jsonrpc: "2.0",
-      id: Date.now(),
-      method: "soroban.invoke",
-      params: {
-        contractId,
-        function: method,
-        args,
-      },
-    };
-    const raw = (await transport(payload)) as {
-      result?: T;
-      error?: { message?: string };
-    };
-    if (raw.error) {
-      throw new Error(raw.error.message ?? "Soroban RPC call failed.");
-    }
-    if (!("result" in raw)) {
-      throw new Error("Soroban RPC response is missing a result.");
-    }
-    return raw.result as T;
+  return async () => {
+    throw new Error(
+      "createSorobanRpcInvoke is deprecated. Build transactions with @stellar/stellar-sdk Contract.call and rpc.Server, or invoke via stellar-cli.",
+    );
   };
 }
 
@@ -266,6 +389,14 @@ function assertClaimsPolicy(policy: AppPolicy): void {
   }
   if (policy.minAge < 0) {
     throw new Error("minAge cannot be negative.");
+  }
+  if (policy.excludedCountries.length > 32) {
+    throw new Error("excludedCountries cannot exceed 32 entries.");
+  }
+  if (policy.sanctionsEnabled) {
+    throw new Error(
+      "sanctionsEnabled is not supported until sanctions circuit integration is complete.",
+    );
   }
 }
 
@@ -285,8 +416,11 @@ export function assertVerificationPayload(payload: VerificationPayload): void {
   if (!payload.publicSignals.length) {
     throw new Error("publicSignals cannot be empty.");
   }
+  if (payload.publicSignals.length + 1 !== payload.vk.ic.length) {
+    throw new Error("vk.ic length must equal publicSignals.length + 1.");
+  }
   for (let i = 0; i < payload.publicSignals.length; i++) {
-    assertHex("publicSignals", i, payload.publicSignals[i]);
+    assertHex32(`publicSignals[${i}]`, payload.publicSignals[i] as Hex);
   }
   assertProofInput("proof", payload.proof);
   assertVkInput("vk", payload.vk);
@@ -296,12 +430,6 @@ function assertHex32(name: string, value: string): void {
   assertNonEmpty(name, value);
   if (!/^0x[0-9a-fA-F]{64}$/.test(value)) {
     throw new Error(`${name} must be a 32-byte hex string (66 chars with 0x prefix).`);
-  }
-}
-
-function assertHex(name: string, index: number, value: string): void {
-  if (!/^0x[0-9a-fA-F]+$/.test(value)) {
-    throw new Error(`${name}[${index}] must be a valid hex string.`);
   }
 }
 
@@ -333,8 +461,9 @@ function assertVkInput(name: string, vk: VerificationKeyInput): void {
   if (!Array.isArray(vk.ic) || vk.ic.length === 0) {
     throw new Error(`${name}.ic must be a non-empty array.`);
   }
+  const g1Pattern = /^0x[0-9a-fA-F]{64}$/;
   for (let i = 0; i < vk.ic.length; i++) {
-    if (!/^0x[0-9a-fA-F]{64}$/.test(vk.ic[i])) {
+    if (!g1Pattern.test(vk.ic[i])) {
       throw new Error(`${name}.ic[${i}] must be a G1 point.`);
     }
   }

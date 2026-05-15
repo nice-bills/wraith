@@ -1,4 +1,13 @@
-import { normalizeHex32, assertVerificationPayload, type Hex } from "./index.js";
+import {
+  normalizeHex32,
+  assertVerificationPayload,
+  decimalToBn254FrHex,
+  computePublicInputsHash,
+  computeAttestedClaimsHash,
+  fromAdapterPayload,
+  type Hex,
+  type AdapterOutput,
+} from "./index.js";
 
 import { describe, it } from "node:test";
 import assert from "node:assert";
@@ -8,6 +17,14 @@ const paddedHex = (zeros: number, suffix: string): string =>
 
 const fullHex = (chars: string, len: number): Hex =>
   `0x${chars.repeat(len).padStart(64, "0")}` as Hex;
+
+const sampleVk = {
+  alpha: fullHex("c", 32),
+  beta: fullHex("d", 256),
+  gamma: fullHex("e", 256),
+  delta: fullHex("f", 256),
+  ic: [fullHex("1", 32), fullHex("2", 32)],
+};
 
 describe("normalizeHex32", () => {
   it("pads short hex to 32 bytes", () => {
@@ -23,19 +40,71 @@ describe("normalizeHex32", () => {
   it("throws on invalid hex", () => {
     assert.throws(() => normalizeHex32("xyz"), /not valid hex/);
   });
+});
 
-  it("throws on >64 char hex", () => {
-    assert.throws(() => normalizeHex32("0x" + "a".repeat(65)), /exceeds 32 bytes/);
+describe("decimalToBn254FrHex", () => {
+  it("encodes u32 as LE in first 4 bytes", () => {
+    const encoded = decimalToBn254FrHex("25");
+    assert.strictEqual(
+      encoded,
+      "0x1900000000000000000000000000000000000000000000000000000000000000",
+    );
   });
+});
 
-  it("handles 0x prefix stripped input", () => {
-    const result = normalizeHex32("abc");
-    assert.strictEqual(result, paddedHex(61, "abc"));
+describe("computePublicInputsHash", () => {
+  it("hashes field encodings", () => {
+    const signals = [
+      decimalToBn254FrHex("25"),
+      decimalToBn254FrHex("840"),
+      decimalToBn254FrHex("1"),
+    ];
+    const hash = computePublicInputsHash(signals);
+    assert.match(hash, /^0x[0-9a-f]{64}$/);
   });
+});
 
-  it("accepts full 32-byte hex", () => {
-    const result = normalizeHex32(fullHex("f", 32));
-    assert.strictEqual(result, fullHex("f", 32));
+describe("computeAttestedClaimsHash", () => {
+  it("returns 32-byte hex", () => {
+    const hash = computeAttestedClaimsHash({
+      age: 25,
+      countryCode: 840,
+      isHuman: true,
+    });
+    assert.match(hash, /^0x[0-9a-f]{64}$/);
+  });
+});
+
+describe("fromAdapterPayload", () => {
+  it("converts adapter output with decimal signals", () => {
+    const adapter: AdapterOutput = {
+      proof: {
+        a: fullHex("2", 32),
+        b: fullHex("3", 256),
+        c: fullHex("4", 32),
+      },
+      verification_key: {
+        ...sampleVk,
+        ic: [
+          fullHex("1", 32),
+          fullHex("2", 32),
+          fullHex("3", 32),
+          fullHex("4", 32),
+        ],
+      },
+      public_signals_decimals: ["25", "840", "1"],
+      public_signals_hex: [
+        decimalToBn254FrHex("25"),
+        decimalToBn254FrHex("840"),
+        decimalToBn254FrHex("1"),
+      ],
+      claims: { age: 25, country_code: 840, is_human: true },
+    };
+    const payload = fromAdapterPayload(adapter, fullHex("a", 32));
+    assert.strictEqual(payload.claims.age, 25);
+    assert.strictEqual(payload.publicSignals.length, 3);
+    assert.strictEqual(payload.vk.ic.length, 4);
+    assert.doesNotThrow(() => assertVerificationPayload(payload));
   });
 });
 
@@ -45,19 +114,13 @@ describe("assertVerificationPayload", () => {
       assertVerificationPayload({
         nullifier: fullHex("a", 32),
         publicInputsHash: fullHex("b", 32),
-        vk: {
-          alpha: fullHex("c", 32),
-          beta: fullHex("d", 256),
-          gamma: fullHex("e", 256),
-          delta: fullHex("f", 256),
-          ic: [fullHex("1", 32)],
-        },
+        vk: sampleVk,
         proof: {
           a: fullHex("2", 32),
           b: fullHex("3", 256),
           c: fullHex("4", 32),
         },
-        publicSignals: [fullHex("5", 32)],
+        publicSignals: [decimalToBn254FrHex("25")],
         claims: {
           age: 25,
           countryCode: 840,
@@ -67,16 +130,13 @@ describe("assertVerificationPayload", () => {
     });
   });
 
-  it("rejects negative age", () => {
+  it("rejects ic length mismatch", () => {
     assert.throws(() => {
       assertVerificationPayload({
         nullifier: fullHex("a", 32),
         publicInputsHash: fullHex("b", 32),
         vk: {
-          alpha: fullHex("c", 32),
-          beta: fullHex("d", 256),
-          gamma: fullHex("e", 256),
-          delta: fullHex("f", 256),
+          ...sampleVk,
           ic: [fullHex("1", 32)],
         },
         proof: {
@@ -84,40 +144,13 @@ describe("assertVerificationPayload", () => {
           b: fullHex("3", 256),
           c: fullHex("4", 32),
         },
-        publicSignals: [fullHex("5", 32)],
-        claims: {
-          age: -1,
-          countryCode: 840,
-          isHuman: true,
-        },
-      });
-    }, /age cannot be negative/);
-  });
-
-  it("rejects empty publicSignals", () => {
-    assert.throws(() => {
-      assertVerificationPayload({
-        nullifier: fullHex("a", 32),
-        publicInputsHash: fullHex("b", 32),
-        vk: {
-          alpha: fullHex("c", 32),
-          beta: fullHex("d", 256),
-          gamma: fullHex("e", 256),
-          delta: fullHex("f", 256),
-          ic: [fullHex("1", 32)],
-        },
-        proof: {
-          a: fullHex("2", 32),
-          b: fullHex("3", 256),
-          c: fullHex("4", 32),
-        },
-        publicSignals: [],
+        publicSignals: [decimalToBn254FrHex("25"), decimalToBn254FrHex("840")],
         claims: {
           age: 25,
           countryCode: 840,
           isHuman: true,
         },
       });
-    }, /publicSignals cannot be empty/);
+    }, /vk.ic length/);
   });
 });

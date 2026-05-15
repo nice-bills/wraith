@@ -7,7 +7,8 @@ wasm:
 	cargo build -p stellar-identity-core --target wasm32v1-none
 
 sdk:
-	cd sdk/stellar-identity-sdk && npm install --silent && npm run build --silent
+	pnpm install --frozen-lockfile
+	pnpm --filter @wraith/stellar-identity-sdk run build
 
 build-all:
 	./scripts/build-all.sh

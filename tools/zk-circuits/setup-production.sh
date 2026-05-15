@@ -22,7 +22,7 @@ echo "✓ circom found"
 # Check if snarkjs is installed
 if ! command -v snarkjs &> /dev/null; then
     echo "ERROR: snarkjs is not installed."
-    echo "Install: npm install -g snarkjs"
+    echo "Install: pnpm add -g snarkjs"
     exit 1
 fi
 
@@ -50,18 +50,18 @@ else
     echo "✓ circomlib present"
 fi
 
-# Install npm dependencies
+# Install pnpm dependencies (rarimo submodule)
 echo ""
-echo "Installing npm dependencies..."
+echo "Installing pnpm dependencies in rarimo..."
 cd "$RARIMO_DIR"
-npm install
+pnpm install
 cd "$SCRIPT_DIR"
-echo "✓ npm dependencies installed"
+echo "✓ pnpm dependencies installed"
 
 echo ""
 echo "=== Setup Complete ==="
 echo ""
 echo "Next steps:"
-echo "1. Run trusted setup: npm run setup:trusted-setup"
-echo "2. Build circuits: npm run build:production"
+echo "1. Run trusted setup: pnpm run trusted-setup"
+echo "2. Build circuits: pnpm run build:production"
 echo "3. See CIRCUITS_REQUIREMENTS.md for production integration details"

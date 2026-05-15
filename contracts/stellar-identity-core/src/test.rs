@@ -41,12 +41,56 @@ fn zero_g2(env: &Env) -> Bn254G2Affine {
     Bn254G2Affine::from_array(env, &[0u8; 128])
 }
 
+fn ic_points(env: &Env, count: u32) -> Vec<Bn254G1Affine> {
+    let z = zero_g1(env);
+    match count {
+        1 => Vec::from_array(env, [z.clone()]),
+        2 => Vec::from_array(env, [z.clone(), z.clone()]),
+        3 => Vec::from_array(env, [z.clone(), z.clone(), z.clone()]),
+        4 => Vec::from_array(
+            env,
+            [z.clone(), z.clone(), z.clone(), z.clone()],
+        ),
+        5 => Vec::from_array(
+            env,
+            [
+                z.clone(),
+                z.clone(),
+                z.clone(),
+                z.clone(),
+                z.clone(),
+            ],
+        ),
+        _ => panic!("unsupported ic count in test helper"),
+    }
+}
+
 fn claims(age: u32, country_code: u32, is_human: bool) -> AttestedClaims {
     AttestedClaims {
         age,
         country_code,
         is_human,
     }
+}
+
+fn attested_hashes(
+    env: &Env,
+    prover: &Address,
+    app_id: &Symbol,
+    subject: &Address,
+    nullifier: &BytesN<32>,
+    claim_values: &AttestedClaims,
+) -> (BytesN<32>, BytesN<32>) {
+    let public_inputs_hash = StellarIdentityCore::hash_attested_claims(env.clone(), claim_values.clone());
+    let attestation_hash = StellarIdentityCore::hash_attestation(
+        env.clone(),
+        prover.clone(),
+        app_id.clone(),
+        subject.clone(),
+        nullifier.clone(),
+        claim_values.clone(),
+    );
+    (public_inputs_hash, attestation_hash)
 }
 
 fn emit_init(env: &Env, contract_id: &Address, admin: &Address, prover: &Address) {
@@ -236,6 +280,10 @@ fn record_attested_result_emits_event_and_blocks_replay() {
     })
     .unwrap();
 
+    let claim_values = claims(22, 566, true);
+    let (public_inputs_hash, attestation_hash) =
+        attested_hashes(&env, &prover, &app_id, &subject, &nullifier, &claim_values);
+
     let record = env
         .as_contract(&contract_id, || {
             StellarIdentityCore::record_attested_result(
@@ -244,16 +292,16 @@ fn record_attested_result_emits_event_and_blocks_replay() {
                 app_id.clone(),
                 subject.clone(),
                 nullifier.clone(),
-                bytes32(&env, 4),
-                bytes32(&env, 5),
-                claims(22, 566, true),
+                public_inputs_hash.clone(),
+                attestation_hash.clone(),
+                claim_values.clone(),
             )
         })
         .unwrap();
 
     assert_eq!(
         record.source,
-        VerificationSource::AttestedProver(bytes32(&env, 5))
+        VerificationSource::AttestedProver(attestation_hash.clone())
     );
     assert_eq!(
         event_vec(&env),
@@ -262,7 +310,7 @@ fn record_attested_result_emits_event_and_blocks_replay() {
                 app_id: app_id.clone(),
                 subject: subject.clone(),
                 nullifier: nullifier.clone(),
-                source: VerificationSource::AttestedProver(bytes32(&env, 5)),
+                source: VerificationSource::AttestedProver(attestation_hash.clone()),
             }
             .to_xdr(&env, &contract_id)
         ]
@@ -275,9 +323,9 @@ fn record_attested_result_emits_event_and_blocks_replay() {
             app_id.clone(),
             subject.clone(),
             nullifier.clone(),
-            bytes32(&env, 4),
-            bytes32(&env, 5),
-            claims(22, 566, true),
+            public_inputs_hash.clone(),
+            attestation_hash.clone(),
+            claim_values.clone(),
         )
     });
     assert_eq!(replay, Err(IdentityError::NullifierAlreadyUsed));
@@ -354,8 +402,16 @@ fn rejects_malformed_vk_before_pairing() {
         b: zero_g2(&env),
         c: zero_g1(&env),
     };
-    let pub_signals = Vec::from_array(&env, [Bn254Fr::from_u256(U256::from_u32(&env, 33))]);
-    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            Bn254Fr::from_u256(U256::from_u32(&env, 33)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+        ],
+    );
+    let pub_inputs_hash =
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -594,58 +650,74 @@ fn blocks_policy_violations_and_duplicate_subjects() {
     })
     .unwrap();
 
+    let young_claims = claims(20, 840, true);
+    let young_nullifier = bytes32(&env, 8);
+    let (young_pub_hash, young_att_hash) =
+        attested_hashes(&env, &prover, &app_id, &subject, &young_nullifier, &young_claims);
     let too_young = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
             prover.clone(),
             app_id.clone(),
             subject.clone(),
-            bytes32(&env, 8),
-            bytes32(&env, 4),
-            bytes32(&env, 5),
-            claims(20, 840, true),
+            young_nullifier,
+            young_pub_hash,
+            young_att_hash,
+            young_claims,
         )
     });
     assert_eq!(too_young, Err(IdentityError::PolicyViolation));
 
+    let blocked_claims = claims(30, 566, true);
+    let blocked_nullifier = bytes32(&env, 10);
+    let (blocked_pub_hash, blocked_att_hash) =
+        attested_hashes(&env, &prover, &app_id, &subject, &blocked_nullifier, &blocked_claims);
     let blocked_country = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
             prover.clone(),
             app_id.clone(),
             subject.clone(),
-            bytes32(&env, 10),
-            bytes32(&env, 4),
-            bytes32(&env, 5),
-            claims(30, 566, true),
+            blocked_nullifier,
+            blocked_pub_hash,
+            blocked_att_hash,
+            blocked_claims,
         )
     });
     assert_eq!(blocked_country, Err(IdentityError::PolicyViolation));
 
+    let valid_claims = claims(30, 840, true);
+    let valid_nullifier = bytes32(&env, 11);
+    let (valid_pub_hash, valid_att_hash) =
+        attested_hashes(&env, &prover, &app_id, &subject, &valid_nullifier, &valid_claims);
     env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
             prover.clone(),
             app_id.clone(),
             subject.clone(),
-            bytes32(&env, 11),
-            bytes32(&env, 4),
-            bytes32(&env, 5),
-            claims(30, 840, true),
+            valid_nullifier,
+            valid_pub_hash,
+            valid_att_hash,
+            valid_claims,
         )
     })
     .unwrap();
 
+    let dup_claims = claims(30, 840, true);
+    let dup_nullifier = bytes32(&env, 12);
+    let (dup_pub_hash, dup_att_hash) =
+        attested_hashes(&env, &prover, &app_id, &subject, &dup_nullifier, &dup_claims);
     let duplicate_subject = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
             prover.clone(),
             app_id.clone(),
             subject.clone(),
-            bytes32(&env, 12),
-            bytes32(&env, 4),
-            bytes32(&env, 5),
-            claims(30, 840, true),
+            dup_nullifier,
+            dup_pub_hash,
+            dup_att_hash,
+            dup_claims,
         )
     });
     assert_eq!(
@@ -698,7 +770,7 @@ fn verify_and_record_requires_vk_hash() {
         beta: zero_g2(&env),
         gamma: zero_g2(&env),
         delta: zero_g2(&env),
-        ic: Vec::from_array(&env, [zero_g1(&env)]),
+        ic: ic_points(&env, 4),
     };
     let proof = Proof {
         a: zero_g1(&env),
@@ -713,7 +785,8 @@ fn verify_and_record_requires_vk_hash() {
             Bn254Fr::from_u256(U256::from_u32(&env, 1)),
         ],
     );
-    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
+    let pub_inputs_hash =
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -764,6 +837,9 @@ fn revoke_app_preserves_records_and_nullifiers() {
     })
     .unwrap();
 
+    let revive_claims = claims(30, 840, true);
+    let (revive_pub, revive_att) =
+        attested_hashes(&env, &prover, &app_id, &subject, &nullifier, &revive_claims);
     env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -771,9 +847,9 @@ fn revoke_app_preserves_records_and_nullifiers() {
             app_id.clone(),
             subject.clone(),
             nullifier.clone(),
-            bytes32(&env, 8),
-            bytes32(&env, 9),
-            claims(30, 840, true),
+            revive_pub,
+            revive_att,
+            revive_claims,
         )
     })
     .unwrap();
@@ -821,16 +897,20 @@ fn revoke_app_preserves_records_and_nullifiers() {
     })
     .unwrap();
 
+    let reverify_claims = claims(30, 840, true);
+    let reverify_nullifier = bytes32(&env, 88);
+    let (reverify_pub, reverify_att) =
+        attested_hashes(&env, &prover, &app_id, &subject, &reverify_nullifier, &reverify_claims);
     let blocked = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
             prover.clone(),
             app_id.clone(),
             subject.clone(),
-            bytes32(&env, 88),
-            bytes32(&env, 8),
-            bytes32(&env, 9),
-            claims(30, 840, true),
+            reverify_nullifier,
+            reverify_pub,
+            reverify_att,
+            reverify_claims,
         )
     });
     assert_eq!(blocked, Err(IdentityError::SubjectAlreadyVerified));
@@ -870,6 +950,15 @@ fn expired_records_can_refresh_with_fresh_nullifier() {
     .unwrap();
 
     set_ledger_sequence(&env, 10);
+    let initial_claims = claims(30, 840, true);
+    let (initial_pub, initial_att) = attested_hashes(
+        &env,
+        &prover,
+        &app_id,
+        &subject,
+        &original_nullifier,
+        &initial_claims,
+    );
     env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -877,9 +966,9 @@ fn expired_records_can_refresh_with_fresh_nullifier() {
             app_id.clone(),
             subject.clone(),
             original_nullifier.clone(),
-            bytes32(&env, 8),
-            bytes32(&env, 9),
-            claims(30, 840, true),
+            initial_pub,
+            initial_att,
+            initial_claims,
         )
     })
     .unwrap();
@@ -906,6 +995,15 @@ fn expired_records_can_refresh_with_fresh_nullifier() {
     });
     assert!(original_nullifier_burned);
 
+    let reuse_claims = claims(30, 840, true);
+    let (reuse_pub, reuse_att) = attested_hashes(
+        &env,
+        &prover,
+        &app_id,
+        &subject,
+        &original_nullifier,
+        &reuse_claims,
+    );
     let old_nullifier_reuse = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -913,9 +1011,9 @@ fn expired_records_can_refresh_with_fresh_nullifier() {
             app_id.clone(),
             subject.clone(),
             original_nullifier.clone(),
-            bytes32(&env, 8),
-            bytes32(&env, 9),
-            claims(30, 840, true),
+            reuse_pub,
+            reuse_att,
+            reuse_claims,
         )
     });
     assert_eq!(
@@ -923,6 +1021,15 @@ fn expired_records_can_refresh_with_fresh_nullifier() {
         Err(IdentityError::NullifierAlreadyUsed)
     );
 
+    let refresh_claims = claims(30, 840, true);
+    let (refresh_pub, refresh_att) = attested_hashes(
+        &env,
+        &prover,
+        &app_id,
+        &subject,
+        &refresh_nullifier,
+        &refresh_claims,
+    );
     env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -930,9 +1037,9 @@ fn expired_records_can_refresh_with_fresh_nullifier() {
             app_id.clone(),
             subject.clone(),
             refresh_nullifier.clone(),
-            bytes32(&env, 10),
-            bytes32(&env, 11),
-            claims(30, 840, true),
+            refresh_pub,
+            refresh_att,
+            refresh_claims,
         )
     })
     .unwrap();
@@ -1041,7 +1148,7 @@ fn verify_and_record_rejects_vk_mismatch() {
         beta: zero_g2(&env),
         gamma: zero_g2(&env),
         delta: zero_g2(&env),
-        ic: Vec::from_array(&env, [zero_g1(&env)]),
+        ic: ic_points(&env, 4),
     };
     let proof = Proof {
         a: zero_g1(&env),
@@ -1056,7 +1163,8 @@ fn verify_and_record_rejects_vk_mismatch() {
             Bn254Fr::from_u256(U256::from_u32(&env, 1)),
         ],
     );
-    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
+    let pub_inputs_hash =
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -1110,7 +1218,7 @@ fn verify_and_record_rejects_claim_mismatch() {
         beta: zero_g2(&env),
         gamma: zero_g2(&env),
         delta: zero_g2(&env),
-        ic: Vec::from_array(&env, [zero_g1(&env)]),
+        ic: ic_points(&env, 4),
     };
     let proof = Proof {
         a: zero_g1(&env),
@@ -1125,7 +1233,8 @@ fn verify_and_record_rejects_claim_mismatch() {
             Bn254Fr::from_u256(U256::from_u32(&env, 1)),
         ],
     );
-    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
+    let pub_inputs_hash =
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -1140,7 +1249,7 @@ fn verify_and_record_rejects_claim_mismatch() {
             claims(99, 840, true),
         )
     });
-    assert_eq!(result, Err(IdentityError::PolicyViolation));
+    assert_eq!(result, Err(IdentityError::ClaimMismatch));
 }
 #[test]
 fn app_approval_mode_blocks_registration() {
@@ -1195,11 +1304,11 @@ fn sanctions_stub_rejects_zero_root() {
     let admin = Address::generate(&env);
     let prover = Address::generate(&env);
     let owner = Address::generate(&env);
-    let subject = Address::generate(&env);
+    let _subject = Address::generate(&env);
     let app_id = Symbol::new(&env, "sanctionszero");
 
     emit_init(&env, &contract_id, &admin, &prover);
-    env.as_contract(&contract_id, || {
+    let register_result = env.as_contract(&contract_id, || {
         StellarIdentityCore::register_app(
             env.clone(),
             app_id.clone(),
@@ -1214,45 +1323,8 @@ fn sanctions_stub_rejects_zero_root() {
             },
             Some(bytes32(&env, 1)),
         )
-    })
-    .unwrap();
-
-    let vk = VerificationKey {
-        alpha: zero_g1(&env),
-        beta: zero_g2(&env),
-        gamma: zero_g2(&env),
-        delta: zero_g2(&env),
-        ic: Vec::from_array(&env, [zero_g1(&env)]),
-    };
-    let proof = Proof {
-        a: zero_g1(&env),
-        b: zero_g2(&env),
-        c: zero_g1(&env),
-    };
-    let pub_signals = Vec::from_array(
-        &env,
-        [
-            Bn254Fr::from_u256(U256::from_u32(&env, 25)),
-            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
-            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
-        ],
-    );
-    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
-
-    let result = env.as_contract(&contract_id, || {
-        StellarIdentityCore::verify_and_record(
-            env.clone(),
-            app_id.clone(),
-            subject.clone(),
-            bytes32(&env, 0),
-            pub_inputs_hash.clone(),
-            vk.clone(),
-            proof.clone(),
-            pub_signals.clone(),
-            garbage_claims(),
-        )
     });
-    assert_eq!(result, Err(IdentityError::SanctionsCheckFailed));
+    assert_eq!(register_result, Err(IdentityError::SanctionsCheckFailed));
 }
 
 #[test]
@@ -1264,12 +1336,30 @@ fn sanctions_failsafe_blocks_with_nonzero_root() {
     let admin = Address::generate(&env);
     let prover = Address::generate(&env);
     let owner = Address::generate(&env);
-    let subject = Address::generate(&env);
+    let _subject = Address::generate(&env);
     let app_id = Symbol::new(&env, "sanctionsfail");
 
     emit_init(&env, &contract_id, &admin, &prover);
     env.as_contract(&contract_id, || {
         StellarIdentityCore::register_app(
+            env.clone(),
+            app_id.clone(),
+            AppPolicy {
+                owner: owner.clone(),
+                min_age: 0,
+                require_humanity: false,
+                sanctions_root: bytes32(&env, 42),
+                excluded_countries: Vec::new(&env),
+                expiration_window: 0,
+                sanctions_enabled: false,
+            },
+            Some(bytes32(&env, 99)),
+        )
+    })
+    .unwrap();
+
+    let update_result = env.as_contract(&contract_id, || {
+        StellarIdentityCore::update_app_policy(
             env.clone(),
             app_id.clone(),
             AppPolicy {
@@ -1281,47 +1371,10 @@ fn sanctions_failsafe_blocks_with_nonzero_root() {
                 expiration_window: 0,
                 sanctions_enabled: true,
             },
-            Some(bytes32(&env, 99)),
-        )
-    })
-    .unwrap();
-
-    let vk = VerificationKey {
-        alpha: zero_g1(&env),
-        beta: zero_g2(&env),
-        gamma: zero_g2(&env),
-        delta: zero_g2(&env),
-        ic: Vec::from_array(&env, [zero_g1(&env)]),
-    };
-    let proof = Proof {
-        a: zero_g1(&env),
-        b: zero_g2(&env),
-        c: zero_g1(&env),
-    };
-    let pub_signals = Vec::from_array(
-        &env,
-        [
-            Bn254Fr::from_u256(U256::from_u32(&env, 25)),
-            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
-            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
-        ],
-    );
-    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
-
-    let result = env.as_contract(&contract_id, || {
-        StellarIdentityCore::verify_and_record(
-            env.clone(),
-            app_id.clone(),
-            subject.clone(),
-            bytes32(&env, 0),
-            pub_inputs_hash.clone(),
-            vk.clone(),
-            proof.clone(),
-            pub_signals.clone(),
-            garbage_claims(),
+            None,
         )
     });
-    assert_eq!(result, Err(IdentityError::SanctionsCheckFailed));
+    assert_eq!(update_result, Err(IdentityError::SanctionsCheckFailed));
 }
 
 #[test]
@@ -1360,7 +1413,7 @@ fn with_sanctions_disabled_vk_mismatch_is_reached() {
         beta: zero_g2(&env),
         gamma: zero_g2(&env),
         delta: zero_g2(&env),
-        ic: Vec::from_array(&env, [zero_g1(&env)]),
+        ic: ic_points(&env, 4),
     };
     let proof = Proof {
         a: zero_g1(&env),
@@ -1375,7 +1428,8 @@ fn with_sanctions_disabled_vk_mismatch_is_reached() {
             Bn254Fr::from_u256(U256::from_u32(&env, 1)),
         ],
     );
-    let pub_inputs_hash = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals);
+    let pub_inputs_hash =
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(

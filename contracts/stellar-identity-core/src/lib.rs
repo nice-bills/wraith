@@ -2,11 +2,20 @@
 #![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
-    Address, BytesN, Env, Symbol, Vec, contract, contracterror, contractevent, contractimpl,
-    contracttype,
+    Address, Bytes, BytesN, Env, IntoVal, Symbol, Vec, contract, contracterror, contractevent,
+    contractimpl, contracttype,
     crypto::bn254::{Bn254Fr, Bn254G1Affine, Bn254G2Affine},
     vec,
+    xdr::ToXdr,
 };
+
+/// Maximum excluded ISO country codes per app policy (gas griefing guard).
+pub const MAX_EXCLUDED_COUNTRIES: u32 = 32;
+
+/// Extend persistent TTL when below this ledger threshold.
+const TTL_THRESHOLD: u32 = 50_000;
+/// Target TTL after extension.
+const TTL_EXTEND_TO: u32 = 200_000;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -29,6 +38,10 @@ pub enum IdentityError {
     AppNotApproved = 15,
     VerificationExpired = 16,
     SanctionsCheckFailed = 17,
+    ClaimMismatch = 18,
+    AttestationHashMismatch = 19,
+    ExcludedCountriesLimit = 20,
+    InsufficientPublicSignals = 21,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -196,13 +209,38 @@ impl StellarIdentityCore {
         Self::read_prover(&env)
     }
 
+    /// SHA-256 of canonical attested claims (age, country, humanity). Used by the attested path.
+    pub fn hash_attested_claims(env: Env, claims: AttestedClaims) -> BytesN<32> {
+        Self::compute_attested_claims_hash(&env, &claims)
+    }
+
+    /// SHA-256 binding prover, app, subject, nullifier, and claims hash for the attested path.
+    pub fn hash_attestation(
+        env: Env,
+        prover: Address,
+        app_id: Symbol,
+        subject: Address,
+        nullifier: BytesN<32>,
+        claims: AttestedClaims,
+    ) -> BytesN<32> {
+        let public_inputs_hash = Self::compute_attested_claims_hash(&env, &claims);
+        Self::compute_attestation_hash(
+            &env,
+            &prover,
+            &app_id,
+            &subject,
+            &nullifier,
+            &public_inputs_hash,
+        )
+    }
+
     pub fn register_app(
         env: Env,
         app_id: Symbol,
         policy: AppPolicy,
         vk_hash: Option<BytesN<32>>,
     ) -> Result<AppPolicy, IdentityError> {
-        Self::read_admin(&env)?;
+        Self::ensure_initialized(&env)?;
         if Self::get_policy(env.clone(), app_id.clone()).is_some() {
             return Err(IdentityError::AppAlreadyRegistered);
         }
@@ -211,15 +249,20 @@ impl StellarIdentityCore {
         {
             return Err(IdentityError::AppNotApproved);
         }
+        Self::validate_policy_registration(&policy)?;
         policy.owner.require_auth();
         let owner = policy.owner.clone();
-        env.storage()
-            .persistent()
-            .set(&DataKey::AppPolicy(app_id.clone()), &policy);
+        Self::persist_set(
+            &env,
+            &DataKey::AppPolicy(app_id.clone()),
+            &policy,
+        );
         if let Some(hash) = vk_hash {
-            env.storage()
-                .persistent()
-                .set(&DataKey::AppVkHash(app_id.clone()), &hash);
+            Self::persist_set(
+                &env,
+                &DataKey::AppVkHash(app_id.clone()),
+                &hash,
+            );
         }
         AppRegistered {
             app_id: app_id.clone(),
@@ -235,7 +278,7 @@ impl StellarIdentityCore {
         policy: AppPolicy,
         vk_hash: Option<BytesN<32>>,
     ) -> Result<AppPolicy, IdentityError> {
-        Self::read_admin(&env)?;
+        Self::ensure_initialized(&env)?;
         if Self::is_app_approval_required(&env)
             && !Self::is_approved_app(env.clone(), app_id.clone())
         {
@@ -245,15 +288,20 @@ impl StellarIdentityCore {
         if current.owner != policy.owner {
             return Err(IdentityError::AppOwnerMismatch);
         }
+        Self::validate_policy_registration(&policy)?;
         policy.owner.require_auth();
         let owner = policy.owner.clone();
-        env.storage()
-            .persistent()
-            .set(&DataKey::AppPolicy(app_id.clone()), &policy);
+        Self::persist_set(
+            &env,
+            &DataKey::AppPolicy(app_id.clone()),
+            &policy,
+        );
         if let Some(hash) = vk_hash {
-            env.storage()
-                .persistent()
-                .set(&DataKey::AppVkHash(app_id.clone()), &hash);
+            Self::persist_set(
+                &env,
+                &DataKey::AppVkHash(app_id.clone()),
+                &hash,
+            );
         }
         AppUpdated {
             app_id: app_id.clone(),
@@ -264,7 +312,7 @@ impl StellarIdentityCore {
     }
 
     pub fn revoke_app(env: Env, app_id: Symbol) -> Result<AppPolicy, IdentityError> {
-        Self::read_admin(&env)?;
+        Self::ensure_initialized(&env)?;
         let policy = Self::get_policy_required(&env, app_id.clone())?;
         policy.owner.require_auth();
         env.storage()
@@ -286,7 +334,11 @@ impl StellarIdentityCore {
     }
 
     pub fn get_policy(env: Env, app_id: Symbol) -> Option<AppPolicy> {
-        env.storage().persistent().get(&DataKey::AppPolicy(app_id))
+        let policy = env.storage().persistent().get(&DataKey::AppPolicy(app_id.clone()));
+        if policy.is_some() {
+            Self::extend_persistent(&env, &DataKey::AppPolicy(app_id));
+        }
+        policy
     }
 
     pub fn is_app_registered(env: Env, app_id: Symbol) -> bool {
@@ -294,7 +346,11 @@ impl StellarIdentityCore {
     }
 
     pub fn get_vk_hash(env: Env, app_id: Symbol) -> Option<BytesN<32>> {
-        env.storage().persistent().get(&DataKey::AppVkHash(app_id))
+        let hash = env.storage().persistent().get(&DataKey::AppVkHash(app_id.clone()));
+        if hash.is_some() {
+            Self::extend_persistent(&env, &DataKey::AppVkHash(app_id));
+        }
+        hash
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -309,7 +365,7 @@ impl StellarIdentityCore {
         pub_signals: Vec<Bn254Fr>,
         claims: AttestedClaims,
     ) -> Result<VerificationRecord, IdentityError> {
-        Self::read_admin(&env)?;
+        Self::ensure_initialized(&env)?;
         subject.require_auth();
         let policy = Self::get_policy_required(&env, app_id.clone())?;
         Self::ensure_unused_nullifier(&env, app_id.clone(), nullifier.clone())?;
@@ -320,7 +376,15 @@ impl StellarIdentityCore {
             policy.expiration_window,
         )?;
 
-        let computed_pub_inputs_hash = Self::compute_pub_signals_hash(&env, &pub_signals);
+        if pub_signals.len() + 1 != vk.ic.len() {
+            return Err(IdentityError::MalformedVerifyingKey);
+        }
+        if pub_signals.len() < 3 {
+            return Err(IdentityError::InsufficientPublicSignals);
+        }
+
+        let computed_pub_inputs_hash =
+            Self::compute_pub_signals_hash_internal(&env, &pub_signals)?;
         if public_inputs_hash != computed_pub_inputs_hash {
             return Err(IdentityError::PublicInputsHashMismatch);
         }
@@ -335,7 +399,7 @@ impl StellarIdentityCore {
 
         let stored_vk_hash =
             Self::get_vk_hash(env.clone(), app_id.clone()).ok_or(IdentityError::VkNotRegistered)?;
-        let computed_vk_hash = Self::compute_vk_hash(&env, &vk);
+        let computed_vk_hash = Self::compute_vk_hash(&env, &vk)?;
         if stored_vk_hash != computed_vk_hash {
             return Err(IdentityError::VkMismatch);
         }
@@ -382,11 +446,29 @@ impl StellarIdentityCore {
         attestation_hash: BytesN<32>,
         claims: AttestedClaims,
     ) -> Result<VerificationRecord, IdentityError> {
+        Self::ensure_initialized(&env)?;
         prover.require_auth();
         subject.require_auth();
         let configured_prover = Self::read_prover(&env)?;
         if prover != configured_prover {
             return Err(IdentityError::Unauthorized);
+        }
+
+        let computed_claims_hash = Self::compute_attested_claims_hash(&env, &claims);
+        if public_inputs_hash != computed_claims_hash {
+            return Err(IdentityError::PublicInputsHashMismatch);
+        }
+
+        let expected_attestation = Self::compute_attestation_hash(
+            &env,
+            &prover,
+            &app_id,
+            &subject,
+            &nullifier,
+            &public_inputs_hash,
+        );
+        if attestation_hash != expected_attestation {
+            return Err(IdentityError::AttestationHashMismatch);
         }
 
         let policy = Self::get_policy_required(&env, app_id.clone())?;
@@ -429,8 +511,6 @@ impl StellarIdentityCore {
     }
 
     pub fn is_verified(env: Env, app_id: Symbol, subject: Address) -> bool {
-        // NOTE: Returns false for unregistered apps, unverified subjects, and expired records.
-        // Callers should use get_record to distinguish "not verified yet" from other states.
         let key = SubjectKey {
             app_id: app_id.clone(),
             subject,
@@ -438,11 +518,12 @@ impl StellarIdentityCore {
         let record = match env
             .storage()
             .persistent()
-            .get::<_, VerificationRecord>(&DataKey::Record(key))
+            .get::<_, VerificationRecord>(&DataKey::Record(key.clone()))
         {
             Some(r) => r,
             None => return false,
         };
+        Self::extend_persistent(&env, &DataKey::Record(key));
         let policy = match Self::get_policy(env.clone(), app_id.clone()) {
             Some(p) => p,
             None => return false,
@@ -465,7 +546,8 @@ impl StellarIdentityCore {
         let record = env
             .storage()
             .persistent()
-            .get::<_, VerificationRecord>(&DataKey::Record(key))?;
+            .get::<_, VerificationRecord>(&DataKey::Record(key.clone()))?;
+        Self::extend_persistent(&env, &DataKey::Record(key));
         let policy = Self::get_policy(env.clone(), app_id)?;
         if policy.expiration_window > 0 {
             let elapsed = env
@@ -480,18 +562,19 @@ impl StellarIdentityCore {
     }
 
     pub fn has_nullifier(env: Env, app_id: Symbol, nullifier: BytesN<32>) -> bool {
-        env.storage()
-            .persistent()
-            .has(&DataKey::Nullifier(app_id, nullifier))
+        let key = DataKey::Nullifier(app_id.clone(), nullifier.clone());
+        let exists = env.storage().persistent().has(&key);
+        if exists {
+            Self::extend_persistent(&env, &key);
+        }
+        exists
     }
 
     pub fn set_app_approval(env: Env, app_id: Symbol, approved: bool) -> Result<(), IdentityError> {
         let admin = Self::read_admin(&env)?;
         admin.require_auth();
         if approved {
-            env.storage()
-                .persistent()
-                .set(&DataKey::AppApproved(app_id), &true);
+            Self::persist_set(&env, &DataKey::AppApproved(app_id), &true);
         } else {
             env.storage()
                 .persistent()
@@ -510,9 +593,7 @@ impl StellarIdentityCore {
         let admin = Self::read_admin(&env)?;
         admin.require_auth();
         if required {
-            env.storage()
-                .persistent()
-                .set(&DataKey::AppApprovalRequired, &true);
+            Self::persist_set(&env, &DataKey::AppApprovalRequired, &true);
         } else {
             env.storage()
                 .persistent()
@@ -538,31 +619,46 @@ impl StellarIdentityCore {
             return Err(IdentityError::MalformedVerifyingKey);
         }
 
-        let mut vk_x = vk.ic.get(0).unwrap();
+        let vk_x = vk.ic.get(0).ok_or(IdentityError::MalformedVerifyingKey)?;
+        let mut acc = vk_x;
         for (s, v) in pub_signals.iter().zip(vk.ic.iter().skip(1)) {
             let prod = bn.g1_mul(&v, &s);
-            vk_x = bn.g1_add(&vk_x, &prod);
+            acc = bn.g1_add(&acc, &prod);
         }
 
         let neg_a = -proof.a;
-        let vp1 = vec![env, neg_a, vk.alpha, vk_x, proof.c];
+        let vp1 = vec![env, neg_a, vk.alpha, acc, proof.c];
         let vp2 = vec![env, proof.b, vk.beta, vk.gamma, vk.delta];
         Ok(bn.pairing_check(vp1, vp2))
     }
 
     fn store_record(env: &Env, record: VerificationRecord) -> Result<(), IdentityError> {
-        env.storage().persistent().set(
-            &DataKey::Nullifier(record.app_id.clone(), record.nullifier.clone()),
-            &true,
-        );
+        let nullifier_key = DataKey::Nullifier(record.app_id.clone(), record.nullifier.clone());
+        Self::persist_set(env, &nullifier_key, &true);
         let key = SubjectKey {
             app_id: record.app_id.clone(),
             subject: record.subject.clone(),
         };
+        Self::persist_set(env, &DataKey::Record(key), &record);
+        Ok(())
+    }
+
+    fn persist_set<K, V>(env: &Env, key: &K, value: &V)
+    where
+        K: IntoVal<Env, soroban_sdk::Val>,
+        V: IntoVal<Env, soroban_sdk::Val>,
+    {
+        env.storage().persistent().set(key, value);
+        Self::extend_persistent(env, key);
+    }
+
+    fn extend_persistent<K>(env: &Env, key: &K)
+    where
+        K: IntoVal<Env, soroban_sdk::Val>,
+    {
         env.storage()
             .persistent()
-            .set(&DataKey::Record(key), &record);
-        Ok(())
+            .extend_ttl(key, TTL_THRESHOLD, TTL_EXTEND_TO);
     }
 
     fn check_sanctions(
@@ -570,17 +666,6 @@ impl StellarIdentityCore {
         _policy: &AppPolicy,
         _claims: &AttestedClaims,
     ) -> Result<(), IdentityError> {
-        // FAIL-SAFE: sanctions_enabled:true always fails until real circuit integration exists.
-        // This prevents a dangerous illusion of protection — enabling sanctions_enabled:true
-        // WITHOUT a bound circuit proof should never silently pass.
-        //
-        // Real implementation requires:
-        // 1. Dedicated sanctions circuit produces a Merkle non-inclusion proof
-        // 2. Proof elements passed as additional pub_signals (e.g., siblings + leaf index)
-        // 3. Contract verifies proof against stored sanctions_root (Merkle root)
-        //
-        // Until that circuit exists and is bound to this policy, any app with
-        // sanctions_enabled:true would be making a false compliance claim.
         Err(IdentityError::SanctionsCheckFailed)
     }
 
@@ -631,6 +716,16 @@ impl StellarIdentityCore {
         Ok(())
     }
 
+    fn validate_policy_registration(policy: &AppPolicy) -> Result<(), IdentityError> {
+        if policy.sanctions_enabled {
+            return Err(IdentityError::SanctionsCheckFailed);
+        }
+        if policy.excluded_countries.len() > MAX_EXCLUDED_COUNTRIES {
+            return Err(IdentityError::ExcludedCountriesLimit);
+        }
+        Ok(())
+    }
+
     fn validate_policy(policy: &AppPolicy, claims: &AttestedClaims) -> Result<(), IdentityError> {
         if claims.age < policy.min_age {
             return Err(IdentityError::PolicyViolation);
@@ -646,39 +741,77 @@ impl StellarIdentityCore {
         Ok(())
     }
 
-    fn compute_vk_hash(env: &Env, vk: &VerificationKey) -> BytesN<32> {
-        use soroban_sdk::Bytes;
+    fn compute_vk_hash(env: &Env, vk: &VerificationKey) -> Result<BytesN<32>, IdentityError> {
         let mut bytes = Bytes::new(env);
         bytes.append(&vk.alpha.to_bytes().into());
         bytes.append(&vk.beta.to_bytes().into());
         bytes.append(&vk.gamma.to_bytes().into());
         bytes.append(&vk.delta.to_bytes().into());
         for i in 0..vk.ic.len() {
-            bytes.append(&vk.ic.get(i).unwrap().to_bytes().into());
+            let point = vk
+                .ic
+                .get(i)
+                .ok_or(IdentityError::MalformedVerifyingKey)?;
+            bytes.append(&point.to_bytes().into());
         }
-        let hash = env.crypto().sha256(&bytes);
-        hash.into()
+        Ok(env.crypto().sha256(&bytes).into())
     }
 
-    fn compute_pub_signals_hash(env: &Env, pub_signals: &Vec<Bn254Fr>) -> BytesN<32> {
-        use soroban_sdk::Bytes;
+    fn compute_pub_signals_hash_internal(
+        env: &Env,
+        pub_signals: &Vec<Bn254Fr>,
+    ) -> Result<BytesN<32>, IdentityError> {
         let mut bytes = Bytes::new(env);
         for i in 0..pub_signals.len() {
-            bytes.append(&pub_signals.get(i).unwrap().to_bytes().into());
+            let signal = pub_signals
+                .get(i)
+                .ok_or(IdentityError::InsufficientPublicSignals)?;
+            bytes.append(&signal.to_bytes().into());
         }
-        let hash = env.crypto().sha256(&bytes);
-        hash.into()
+        Ok(env.crypto().sha256(&bytes).into())
+    }
+
+    fn compute_attested_claims_hash(env: &Env, claims: &AttestedClaims) -> BytesN<32> {
+        let mut bytes = Bytes::new(env);
+        bytes.extend_from_slice(&claims.age.to_le_bytes());
+        bytes.extend_from_slice(&claims.country_code.to_le_bytes());
+        let humanity = if claims.is_human { 1u32 } else { 0u32 };
+        bytes.extend_from_slice(&humanity.to_le_bytes());
+        env.crypto().sha256(&bytes).into()
+    }
+
+    fn compute_attestation_hash(
+        env: &Env,
+        prover: &Address,
+        app_id: &Symbol,
+        subject: &Address,
+        nullifier: &BytesN<32>,
+        public_inputs_hash: &BytesN<32>,
+    ) -> BytesN<32> {
+        let mut bytes = Bytes::new(env);
+        bytes.append(&prover.to_xdr(env));
+        bytes.append(&app_id.to_xdr(env));
+        bytes.append(&subject.to_xdr(env));
+        bytes.append(&nullifier.to_xdr(env));
+        bytes.append(&public_inputs_hash.to_xdr(env));
+        env.crypto().sha256(&bytes).into()
     }
 
     fn derive_claims_from_signals(
         pub_signals: &Vec<Bn254Fr>,
     ) -> Result<AttestedClaims, IdentityError> {
         if pub_signals.len() < 3 {
-            return Err(IdentityError::MalformedVerifyingKey);
+            return Err(IdentityError::InsufficientPublicSignals);
         }
-        let age_fr = pub_signals.get(0).unwrap();
-        let country_fr = pub_signals.get(1).unwrap();
-        let is_human_fr = pub_signals.get(2).unwrap();
+        let age_fr = pub_signals
+            .get(0)
+            .ok_or(IdentityError::InsufficientPublicSignals)?;
+        let country_fr = pub_signals
+            .get(1)
+            .ok_or(IdentityError::InsufficientPublicSignals)?;
+        let is_human_fr = pub_signals
+            .get(2)
+            .ok_or(IdentityError::InsufficientPublicSignals)?;
         let age_bytes = age_fr.to_bytes();
         let country_bytes = country_fr.to_bytes();
         let is_human_bytes = is_human_fr.to_bytes();
@@ -712,15 +845,30 @@ impl StellarIdentityCore {
         supplied: &AttestedClaims,
     ) -> Result<(), IdentityError> {
         if derived.age != supplied.age {
-            return Err(IdentityError::PolicyViolation);
+            return Err(IdentityError::ClaimMismatch);
         }
         if derived.country_code != supplied.country_code {
-            return Err(IdentityError::PolicyViolation);
+            return Err(IdentityError::ClaimMismatch);
         }
         if derived.is_human != supplied.is_human {
-            return Err(IdentityError::PolicyViolation);
+            return Err(IdentityError::ClaimMismatch);
         }
         Ok(())
+    }
+
+    fn ensure_initialized(env: &Env) -> Result<(), IdentityError> {
+        if !env.storage().instance().has(&DataKey::Admin) {
+            return Err(IdentityError::NotInitialized);
+        }
+        Ok(())
+    }
+
+    /// Used by unit tests and off-chain hash replication.
+    pub fn compute_pub_signals_hash(
+        env: &Env,
+        pub_signals: &Vec<Bn254Fr>,
+    ) -> Result<BytesN<32>, IdentityError> {
+        Self::compute_pub_signals_hash_internal(env, pub_signals)
     }
 
     fn read_admin(env: &Env) -> Result<Address, IdentityError> {

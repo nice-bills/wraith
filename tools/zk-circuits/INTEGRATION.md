@@ -16,17 +16,17 @@ This directory contains ZK circuits for Wraith Identity Core:
 ```bash
 # Install dependencies
 cd tools/zk-circuits
-npm install
+pnpm install
 
 # Setup rarimo (requires network)
 git submodule update --init --recursive
-cd rarimo && npm install && cd ..
+cd rarimo && pnpm install && cd ..
 
 # Run trusted setup
 bash setup-trusted-setup.sh
 
 # Build production circuits
-npm run build:production
+pnpm run build:production
 ```
 
 ## Rarimo Integration
@@ -142,10 +142,10 @@ Use a ceremony from an established project (e.g., Hermez, Polygon).
 cd rarimo
 
 # Install dependencies
-npm install
+pnpm install
 
 # Compile circuits (requires circom 2.x)
-npm run compile
+pnpm run compile
 
 # This generates:
 # - circuits/*.r1cs (constraint systems)

@@ -1,0 +1,14 @@
+{
+  "network": "futurenet",
+  "rpcUrl": "https://rpc-futurenet.stellar.org:443",
+  "networkPassphrase": "Test SDF Future Network ; October 2022",
+  "contractId": "CDN4IVFM4BN466RIGW7L4I475WJ3UGKL2CCQD23DT5CEQU27BC6TBIDI",
+  "wasmPath": "target/wasm32v1-none/release/stellar_identity_core.wasm",
+  "wasmSha256": "8a96bb4bf9726c97c99accef703b69cf76cd1d1dac64f636351e0abe71b892c2",
+  "deployedAt": "2026-05-15T16:29:56Z",
+  "admin": "GDYLBKGXBZ4QWVKZGGEWEZ2CY4BNVULZ62JNI6JYGOENLNH6I5RC5SA5",
+  "prover": "GDYLBKGXBZ4QWVKZGGEWEZ2CY4BNVULZ62JNI6JYGOENLNH6I5RC5SA5",
+  "packageVersion": "0.1.0",
+  "previousContractId": "CBIXX5TMSPS7X6RFDKDHHEFASN67BTZBWWM5DRA6EMBQRBZWZC2ZFKZZ",
+  "notes": "Redeploy with attested hash binding, extend_ttl, ClaimMismatch, sanctions registration guard"
+}

@@ -1,9 +1,13 @@
 target/
 node_modules/
 dist/
+package-lock.json
+**/package-lock.json
 
 # Deployed contract address (local only)
 .contract-address
+.env
+.env.*
 
 # ZK proving artifacts
 tools/zk-circuits/build/

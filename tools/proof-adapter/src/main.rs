@@ -57,6 +57,7 @@ struct AdapterOutput {
     proof: ProofPayload,
     verification_key: VerificationKeyPayload,
     public_signals_decimals: Vec<String>,
+    public_signals_hex: Vec<String>,
     claims: Option<ClaimsPayload>,
 }
 
@@ -99,15 +100,20 @@ fn main() -> Result<()> {
     let public_signals_decimals = parse_public_signals(&public_signals)?;
 
     let (output_public_signals, claims) = if cli.rarimo_mode {
-        let current_date = cli.current_date.unwrap_or_else(|| {
-            chrono::Local::now().format("%y%m%d").to_string()
-        });
+        let current_date = cli
+            .current_date
+            .as_deref()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "--current-date (YYMMDD, UTC) is required in --rarimo-mode for production use"
+                )
+            })?;
 
         let rarimo_signals = RarimoPublicSignals::from_query_output(&public_signals_decimals)
             .context("failed to parse rarimo signals")?;
 
         let wraith_claims = rarimo_signals
-            .to_wraith_claims(&current_date)
+            .to_wraith_claims(current_date)
             .context("failed to derive wraith claims from rarimo signals")?;
 
         let claims_payload = ClaimsPayload {
@@ -127,6 +133,14 @@ fn main() -> Result<()> {
         (public_signals_decimals.clone(), claims)
     };
 
+    let public_signals_hex: Vec<String> = output_public_signals
+        .iter()
+        .map(|decimal| {
+            let bytes = decimal_to_be32(decimal)?;
+            Ok(format!("0x{}", hex::encode(bytes)))
+        })
+        .collect::<Result<_>>()?;
+
     let output = AdapterOutput {
         proof: ProofPayload {
             a: encode_g1(&proof.pi_a).context("failed to parse pi_a")?,
@@ -141,6 +155,7 @@ fn main() -> Result<()> {
             ic: encode_ic(&vk.ic).context("failed to parse IC")?,
         },
         public_signals_decimals: output_public_signals,
+        public_signals_hex,
         claims,
     };
 
@@ -305,8 +320,18 @@ fn validate_output(output: &AdapterOutput) -> Result<()> {
     if output.verification_key.ic_len() == 0 {
         bail!("verification key IC must not be empty");
     }
+    if output.public_signals_decimals.len() + 1 != output.verification_key.ic_len() {
+        bail!(
+            "verification key IC length must be public_signals.len() + 1 (got IC={}, signals={})",
+            output.verification_key.ic_len(),
+            output.public_signals_decimals.len()
+        );
+    }
     if output.public_signals_decimals.is_empty() {
         bail!("public signals must not be empty");
+    }
+    if output.public_signals_hex.len() != output.public_signals_decimals.len() {
+        bail!("public_signals_hex length must match public_signals_decimals");
     }
     if let Some(claims) = &output.claims {
         if claims.age == 0 {
@@ -381,6 +406,29 @@ mod tests {
                 ic: Vec::new(),
             },
             public_signals_decimals: vec!["1".into()],
+            public_signals_hex: vec!["0x01".into()],
+            claims: None,
+        };
+        assert!(validate_output(&output).is_err());
+    }
+
+    #[test]
+    fn validate_output_rejects_ic_length_mismatch() {
+        let output = super::AdapterOutput {
+            proof: super::ProofPayload {
+                a: "0x1".into(),
+                b: "0x2".into(),
+                c: "0x3".into(),
+            },
+            verification_key: super::VerificationKeyPayload {
+                alpha: "0x1".into(),
+                beta: "0x2".into(),
+                gamma: "0x3".into(),
+                delta: "0x4".into(),
+                ic: vec!["0x1".into()],
+            },
+            public_signals_decimals: vec!["1".into(), "2".into()],
+            public_signals_hex: vec!["0x01".into(), "0x02".into()],
             claims: None,
         };
         assert!(validate_output(&output).is_err());

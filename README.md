@@ -36,7 +36,10 @@ Stellar-native identity verification stack with contract, adapter, SDK, and depl
 wraith/
 ├── contracts/stellar-identity-core
 ├── tools/proof-adapter
-└── sdk/stellar-identity-sdk
+├── tools/zk-circuits
+├── sdk/stellar-identity-sdk
+├── scripts/
+└── docs/
 ```
 
 ## Build and test
@@ -70,10 +73,12 @@ cargo run -p proof-adapter -- \
 
 ### 3) SDK build
 
+This repo uses **pnpm only** (`package-lock.json` is gitignored). Install via [pnpm](https://pnpm.io/installation) or Corepack: `corepack enable && corepack prepare pnpm@9.15.0 --activate`.
+
 ```bash
 cd /home/bills/code/wraith/sdk/stellar-identity-sdk
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ### 4) Adapter payload smoke test
@@ -91,6 +96,18 @@ This runs `scripts/adapter-smoke.sh`, which verifies fixture-to-payload conversi
 cd /home/bills/code/wraith
 ./scripts/build-all.sh
 ```
+
+### 6) Deploy to Futurenet
+
+Uses your local `stellar-cli` identity (no keys in repo):
+
+```bash
+export SOROBAN_SOURCE_ACCOUNT=bills-futurenet   # your ~/.config/stellar identity alias
+export STELLAR_NETWORK=futurenet
+./scripts/deploy-contract.sh
+```
+
+Contract ID is written to `.contract-address` and `deployments/futurenet.json`.
 
 ## Contract methods
 
@@ -115,12 +132,25 @@ cd /home/bills/code/wraith
 
 ## Security model
 
-- VK hash is **mandatory** for Groth16 verification — unregistered VKs are rejected
-- Claims are **cryptographically bound** to the proof — derived from pub_signals[0..2] and verified against supplied claims
-- `public_inputs_hash` is **validated** against recomputed hash of pub_signals
-- Nullifiers are **app-scoped** — `Nullifier(app_id, nullifier)` prevents cross-app linkability
-- App registration requires **admin approval** when approval mode is enabled
-- Verification records **expire** based on `expiration_window` — enforced on read
+### On-chain Groth16 (`verify_and_record`)
+
+- VK hash is **mandatory** — unregistered VKs are rejected
+- Claims are **cryptographically bound** — derived from `pub_signals[0..2]` and matched to supplied claims
+- `public_inputs_hash` must match SHA-256 of serialized public signals
+- Subject must authorize; nullifiers are **app-scoped**
+
+### Attested prover (`record_attested_result`)
+
+- Configured `prover` and `subject` must sign
+- `public_inputs_hash` must match `hash_attested_claims(claims)`
+- `attestation_hash` must match `hash_attestation(prover, app_id, subject, nullifier, public_inputs_hash)`
+- Use SDK `buildAttestedPayload` / contract `hash_attestation` helpers to compute hashes
+
+### Shared
+
+- App registration may require **admin approval** when approval mode is enabled
+- Verification records **expire** per `expiration_window` on read
+- `sanctions_enabled: true` is rejected at registration (fail-safe until circuit exists)
 
 ## Notes
 

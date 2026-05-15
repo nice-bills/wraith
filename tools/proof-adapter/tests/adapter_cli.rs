@@ -55,7 +55,11 @@ fn cli_converts_fixtures_and_derives_claims() {
 
     assert_eq!(a.len(), 130); // 0x + 64-byte hex
     assert_eq!(b.len(), 258); // 0x + 128-byte hex
-    assert_eq!(ic.len(), 2);
+    assert_eq!(ic.len(), 5);
+    assert_eq!(
+        output["public_signals_hex"].as_array().unwrap().len(),
+        4
+    );
     assert_eq!(output["claims"]["age"], 25);
     assert_eq!(output["claims"]["country_code"], 840);
     assert_eq!(output["claims"]["is_human"], true);

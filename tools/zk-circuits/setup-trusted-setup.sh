@@ -27,7 +27,7 @@ echo "✓ circom found: $(circom --version 2>/dev/null || echo 'unknown version'
 # Check for snarkjs
 if ! command -v snarkjs &> /dev/null; then
     echo "ERROR: snarkjs is not installed"
-    echo "Install: npm install -g snarkjs"
+    echo "Install: pnpm add -g snarkjs"
     exit 1
 fi
 echo "✓ snarkjs found: $(snarkjs --version 2>/dev/null || echo 'unknown version')"
@@ -101,7 +101,7 @@ echo ""
 echo "Next steps:"
 echo "1. Review the PTAU file provenance"
 echo "2. For production: run your own Powers of Tau ceremony"
-echo "3. Build circuits: cd rarimo && npm run compile"
+echo "3. Build circuits: cd rarimo && pnpm run compile"
 echo "4. Generate proving/verification keys"
 echo "5. Update contract with new VK hash"
 echo ""

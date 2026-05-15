@@ -219,7 +219,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 200000
       },
       {
         "entry": {
@@ -249,7 +249,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 200000
       },
       {
         "entry": {
@@ -333,7 +333,7 @@
                       "symbol": "public_inputs_hash"
                     },
                     "val": {
-                      "bytes": "0808080808080808080808080808080808080808080808080808080808080808"
+                      "bytes": "ef5258d8b7787b773d396b3e1c5e9b23f047d61ba90966a1373bef5ba424f600"
                     }
                   },
                   {
@@ -346,7 +346,7 @@
                           "symbol": "AttestedProver"
                         },
                         {
-                          "bytes": "0909090909090909090909090909090909090909090909090909090909090909"
+                          "bytes": "737bccefc6cff4c5e8f2cbdb3eeacec46f21c9e198c723bee3d10b65a31be1fe"
                         }
                       ]
                     }
@@ -373,7 +373,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 4095
+        "live_until": 200000
       },
       {
         "entry": {
