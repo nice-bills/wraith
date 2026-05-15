@@ -1,18 +1,18 @@
 pragma circom 2.2.3;
 
-// DEMO-ONLY CIRCUIT - NOT PRODUCTION SOUND
-// This circuit is for testing/development purposes only.
-// It does NOT prove knowledge of factors of 4 as the comments claim.
+// DEMO-ONLY CIRCUIT
+// This circuit demonstrates basic multiplication in Circom.
+// It proves that the prover knows values a and b such that c = a * b.
+// This is useful for testing the proof generation pipeline
+// but does NOT prove anything about specific values like factors of 4.
 
-template MultiplyIsFour() {
-    // Very simple circuit: a * b = c
-    // NOTE: This does NOT enforce c = 4 as the original comment suggested.
-    // It only proves that the prover knows a and b such that c = a * b.
+template Multiply() {
     signal input a;
     signal input b;
     signal output c;
 
+    // Basic constraint: c must equal a * b
     c <== a * b;
 }
 
-component main = MultiplyIsFour();
+component main = Multiply();

@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
     Address, BytesN, Env, Symbol, Vec, contract, contracterror, contractevent, contractimpl,
@@ -205,10 +206,10 @@ impl StellarIdentityCore {
         if Self::get_policy(env.clone(), app_id.clone()).is_some() {
             return Err(IdentityError::AppAlreadyRegistered);
         }
-        if Self::is_app_approval_required(&env) {
-            if !Self::is_approved_app(env.clone(), app_id.clone()) {
-                return Err(IdentityError::AppNotApproved);
-            }
+        if Self::is_app_approval_required(&env)
+            && !Self::is_approved_app(env.clone(), app_id.clone())
+        {
+            return Err(IdentityError::AppNotApproved);
         }
         policy.owner.require_auth();
         let owner = policy.owner.clone();
@@ -235,10 +236,10 @@ impl StellarIdentityCore {
         vk_hash: Option<BytesN<32>>,
     ) -> Result<AppPolicy, IdentityError> {
         Self::read_admin(&env)?;
-        if Self::is_app_approval_required(&env) {
-            if !Self::is_approved_app(env.clone(), app_id.clone()) {
-                return Err(IdentityError::AppNotApproved);
-            }
+        if Self::is_app_approval_required(&env)
+            && !Self::is_approved_app(env.clone(), app_id.clone())
+        {
+            return Err(IdentityError::AppNotApproved);
         }
         let current = Self::get_policy_required(&env, app_id.clone())?;
         if current.owner != policy.owner {
@@ -296,6 +297,7 @@ impl StellarIdentityCore {
         env.storage().persistent().get(&DataKey::AppVkHash(app_id))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn verify_and_record(
         env: Env,
         app_id: Symbol,
@@ -369,6 +371,7 @@ impl StellarIdentityCore {
         Ok(record)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn record_attested_result(
         env: Env,
         prover: Address,

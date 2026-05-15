@@ -4,11 +4,8 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct RarimoPublicSignals {
-    pub nullifier: String,
     pub birth_date: String,
-    pub expiration_date: String,
     pub nationality: String,
-    pub citizenship: String,
 }
 
 impl RarimoPublicSignals {
@@ -21,11 +18,8 @@ impl RarimoPublicSignals {
         }
 
         Ok(Self {
-            nullifier: signals[0].clone(),
             birth_date: signals[1].clone(),
-            expiration_date: signals[2].clone(),
             nationality: signals[5].clone(),
-            citizenship: signals[6].clone(),
         })
     }
 
@@ -132,11 +126,8 @@ mod tests {
     #[test]
     fn test_parse_birth_date() {
         let signals = RarimoPublicSignals {
-            nullifier: "0".to_string(),
             birth_date: "950101".to_string(),
-            expiration_date: "300101".to_string(),
             nationality: "0".to_string(),
-            citizenship: "0".to_string(),
         };
 
         let (yy, mm, dd) = signals.parse_birth_date_yymmdd().unwrap();
@@ -146,11 +137,8 @@ mod tests {
     #[test]
     fn test_parse_birth_date_with_leading_zeros() {
         let signals = RarimoPublicSignals {
-            nullifier: "0".to_string(),
             birth_date: "70101".to_string(),
-            expiration_date: "300101".to_string(),
             nationality: "0".to_string(),
-            citizenship: "0".to_string(),
         };
 
         let (yy, mm, dd) = signals.parse_birth_date_yymmdd().unwrap();
@@ -160,25 +148,19 @@ mod tests {
     #[test]
     fn test_derive_age_older_than_18() {
         let signals = RarimoPublicSignals {
-            nullifier: "0".to_string(),
             birth_date: "950101".to_string(),
-            expiration_date: "300101".to_string(),
             nationality: "840".to_string(),
-            citizenship: "0".to_string(),
         };
 
         let age = signals.derive_age("250101").unwrap();
-        assert!(age >= 29 && age <= 30);
+        assert!((29..=30).contains(&age));
     }
 
     #[test]
     fn test_derive_age_younger_than_18() {
         let signals = RarimoPublicSignals {
-            nullifier: "0".to_string(),
             birth_date: "200101".to_string(),
-            expiration_date: "300101".to_string(),
             nationality: "840".to_string(),
-            citizenship: "0".to_string(),
         };
 
         let age = signals.derive_age("250101").unwrap();
@@ -188,11 +170,8 @@ mod tests {
     #[test]
     fn test_derive_age_exact_boundary() {
         let signals = RarimoPublicSignals {
-            nullifier: "0".to_string(),
             birth_date: "070101".to_string(),
-            expiration_date: "300101".to_string(),
             nationality: "840".to_string(),
-            citizenship: "0".to_string(),
         };
 
         let age = signals.derive_age("250101").unwrap();
@@ -202,11 +181,8 @@ mod tests {
     #[test]
     fn test_nationality_to_country_code() {
         let signals = RarimoPublicSignals {
-            nullifier: "0".to_string(),
             birth_date: "950101".to_string(),
-            expiration_date: "300101".to_string(),
             nationality: "840".to_string(),
-            citizenship: "0".to_string(),
         };
 
         let country_code = signals.nationality_to_country_code().unwrap();
@@ -216,11 +192,8 @@ mod tests {
     #[test]
     fn test_nationality_large_value() {
         let signals = RarimoPublicSignals {
-            nullifier: "0".to_string(),
             birth_date: "950101".to_string(),
-            expiration_date: "300101".to_string(),
             nationality: "5589842".to_string(),
-            citizenship: "0".to_string(),
         };
 
         let country_code = signals.nationality_to_country_code().unwrap();
@@ -230,11 +203,8 @@ mod tests {
     #[test]
     fn test_to_wraith_claims() {
         let signals = RarimoPublicSignals {
-            nullifier: "0".to_string(),
             birth_date: "950101".to_string(),
-            expiration_date: "300101".to_string(),
             nationality: "840".to_string(),
-            citizenship: "0".to_string(),
         };
 
         let claims = signals.to_wraith_claims("250101").unwrap();
