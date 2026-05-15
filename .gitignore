@@ -2,6 +2,9 @@ target/
 node_modules/
 dist/
 
+# Deployed contract address (local only)
+.contract-address
+
 # ZK proving artifacts
 tools/zk-circuits/build/
 tools/zk-circuits/proof/
