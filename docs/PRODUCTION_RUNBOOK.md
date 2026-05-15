@@ -5,14 +5,18 @@
 
 - Network: Futurenet (Test SDF Future Network ; October 2022)
 - Soroban RPC: https://rpc-futurenet.stellar.org:443
+- Contract ID: `CCILEZJOK7TKCLI3R2UN2B2TSKWILT6CWAUEQ7DWWH2L4WFAFLTOUVKM` (see `deployments/futurenet.json`)
+- Previous ID: `CDN4IVFM4BN466RIGW7L4I475WJ3UGKL2CCQD23DT5CEQU27BC6TBIDI` (LE `fr_to_u32`; superseded)
 
 ## Verified Proofs
 
 | Ledger | Circuit | App | Status |
 |--------|---------|-----|--------|
-| 2808394 | simple_mult | wave | ✓ Verified |
-| 2808613 | simple | ageverify | ✓ Verified |
-| 2812755 | age_check | wave | ✓ Verified |
+| 2928683 | attested | e2eatt* | ✓ Verified (attested path) |
+| 2928689 | e2e_claims | e2egrth* | ✓ Verified (Groth16, claims 30/840/true) |
+| 2808394 | simple_mult | wave | ✓ Verified (legacy) |
+| 2808613 | simple | ageverify | ✓ Verified (legacy) |
+| 2812755 | age_check | wave | ✓ Verified (legacy) |
 
 ## Core Components
 
@@ -29,7 +33,8 @@
 ### ZK Circuits (`tools/zk-circuits/`)
 **⚠️ DEMO-ONLY: These circuits are not production-sound and should not be used for real identity verification.**
 
-- `circuits/simple_mult.circom`: Trivial multiplication proof (demo only)
+- `circuits/e2e_claims.circom`: Three public signals (age, country, humanity) for contract E2E
+- `circuits/simple_mult.circom`: Trivial multiplication proof (demo only; only 1 public signal — not valid for this contract)
 - `circuits/age_check.circom`: Age verification (≥18, nationality, validity) - **demo only, not cryptographically sound**
 - `circuits/passport_verifier.circom`: Passport verification - **demo only, contains known issues**
 
@@ -50,6 +55,15 @@ make smoke
 ```
 
 `make smoke` runs `scripts/adapter-smoke.sh` and only validates fixture-to-payload conversion.
+
+```bash
+# Futurenet E2E (writes on chain; requires SOROBAN_SOURCE_ACCOUNT)
+export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
+make e2e-attested   # attested prover path
+make e2e-groth16    # e2e_claims.circom → prove → verify_and_record
+```
+
+Groth16 `register_app` requires `--vk_hash` as JSON-quoted hex: `--vk_hash "\"<64-char-hex>\""`. Use `scripts/compute-vk-hash.mjs` on the adapter payload.
 
 ```bash
 # Read-only contract smoke test (no writes)

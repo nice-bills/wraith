@@ -61,17 +61,32 @@ echo "$CONTRACT_ID" > "$ROOT_DIR/.contract-address"
 mkdir -p "$DEPLOYMENTS_DIR"
 DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 WASM_SHA256="$(sha256sum "$WASM_PATH" | awk '{print $1}')"
+PREVIOUS_ID=""
+if [[ -f "$DEPLOYMENTS_DIR/${STELLAR_NETWORK}.json" ]]; then
+  PREVIOUS_ID="$(jq -r .contractId "$DEPLOYMENTS_DIR/${STELLAR_NETWORK}.json" 2>/dev/null || true)"
+fi
+
+RPC_URL="https://rpc-futurenet.stellar.org:443"
+PASSPHRASE="Test SDF Future Network ; October 2022"
+if [[ "$STELLAR_NETWORK" == "testnet" ]]; then
+  RPC_URL="https://soroban-testnet.stellar.org"
+  PASSPHRASE="Test SDF Network ; September 2015"
+fi
 
 cat > "$DEPLOYMENTS_DIR/${STELLAR_NETWORK}.json" <<EOF
 {
   "network": "$STELLAR_NETWORK",
+  "rpcUrl": "$RPC_URL",
+  "networkPassphrase": "$PASSPHRASE",
   "contractId": "$CONTRACT_ID",
   "wasmPath": "target/wasm32v1-none/release/stellar_identity_core.wasm",
   "wasmSha256": "$WASM_SHA256",
   "deployedAt": "$DEPLOYED_AT",
   "admin": "$ADMIN_ADDRESS",
   "prover": "$PROVER_ADDRESS",
-  "packageVersion": "0.1.0"
+  "packageVersion": "0.1.0",
+  "previousContractId": "${PREVIOUS_ID:-null}",
+  "notes": "fr_to_u32 BE decode for Groth16 claim binding"
 }
 EOF
 

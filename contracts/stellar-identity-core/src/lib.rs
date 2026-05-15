@@ -797,6 +797,18 @@ impl StellarIdentityCore {
         env.crypto().sha256(&bytes).into()
     }
 
+    /// Decode a small public signal from `Bn254Fr` (snarkjs-sized values).
+    /// `Fr::to_bytes()` is big-endian per soroban-sdk; take the low 4 bytes BE.
+    fn fr_to_u32(fr: &Bn254Fr) -> Result<u32, IdentityError> {
+        let bytes = fr.to_bytes();
+        Ok(u32::from_be_bytes([
+            bytes.get(28).unwrap_or(0),
+            bytes.get(29).unwrap_or(0),
+            bytes.get(30).unwrap_or(0),
+            bytes.get(31).unwrap_or(0),
+        ]))
+    }
+
     fn derive_claims_from_signals(
         pub_signals: &Vec<Bn254Fr>,
     ) -> Result<AttestedClaims, IdentityError> {
@@ -812,27 +824,9 @@ impl StellarIdentityCore {
         let is_human_fr = pub_signals
             .get(2)
             .ok_or(IdentityError::InsufficientPublicSignals)?;
-        let age_bytes = age_fr.to_bytes();
-        let country_bytes = country_fr.to_bytes();
-        let is_human_bytes = is_human_fr.to_bytes();
-        let age = u32::from_le_bytes([
-            age_bytes.get(0).unwrap_or(0),
-            age_bytes.get(1).unwrap_or(0),
-            age_bytes.get(2).unwrap_or(0),
-            age_bytes.get(3).unwrap_or(0),
-        ]);
-        let country_code = u32::from_le_bytes([
-            country_bytes.get(0).unwrap_or(0),
-            country_bytes.get(1).unwrap_or(0),
-            country_bytes.get(2).unwrap_or(0),
-            country_bytes.get(3).unwrap_or(0),
-        ]);
-        let is_human_val = u32::from_le_bytes([
-            is_human_bytes.get(0).unwrap_or(0),
-            is_human_bytes.get(1).unwrap_or(0),
-            is_human_bytes.get(2).unwrap_or(0),
-            is_human_bytes.get(3).unwrap_or(0),
-        ]);
+        let age = Self::fr_to_u32(&age_fr)?;
+        let country_code = Self::fr_to_u32(&country_fr)?;
+        let is_human_val = Self::fr_to_u32(&is_human_fr)?;
         Ok(AttestedClaims {
             age,
             country_code,

@@ -226,14 +226,14 @@ export class StellarIdentityClient {
   }
 }
 
-/** Encode a u32 public signal as a Bn254Fr hex string (LE u32 in first 4 bytes). */
+/** Encode a u32 public signal as a Bn254Fr hex string (matches Soroban `Fr::to_bytes()` BE layout). */
 export function decimalToBn254FrHex(decimal: string): Hex {
   const n = BigInt(decimal);
   if (n < 0n || n > 0xffff_ffffn) {
     throw new Error(`public signal must fit u32, got ${decimal}`);
   }
   const buf = Buffer.alloc(32);
-  buf.writeUInt32LE(Number(n), 0);
+  buf.writeUInt32BE(Number(n), 28);
   return `0x${buf.toString("hex")}` as Hex;
 }
 

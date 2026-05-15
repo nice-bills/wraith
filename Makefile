@@ -1,10 +1,10 @@
-.PHONY: test wasm sdk build-all smoke
+.PHONY: test wasm sdk build-all smoke e2e-attested e2e-groth16
 
 test:
 	cargo test
 
 wasm:
-	cargo build -p stellar-identity-core --target wasm32v1-none
+	cargo build -p stellar-identity-core --target wasm32v1-none --release
 
 sdk:
 	pnpm install --frozen-lockfile
@@ -15,4 +15,10 @@ build-all:
 
 smoke:
 	./scripts/adapter-smoke.sh
+
+e2e-attested:
+	./scripts/e2e-attested-futurenet.sh
+
+e2e-groth16:
+	./scripts/e2e-groth16-futurenet.sh
 

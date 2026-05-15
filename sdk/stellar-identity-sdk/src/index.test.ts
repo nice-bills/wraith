@@ -43,11 +43,11 @@ describe("normalizeHex32", () => {
 });
 
 describe("decimalToBn254FrHex", () => {
-  it("encodes u32 as LE in first 4 bytes", () => {
+  it("encodes u32 as BE in the low limb (matches Soroban Fr::to_bytes)", () => {
     const encoded = decimalToBn254FrHex("25");
     assert.strictEqual(
       encoded,
-      "0x1900000000000000000000000000000000000000000000000000000000000000",
+      "0x0000000000000000000000000000000000000000000000000000000000000019",
     );
   });
 });

@@ -423,7 +423,7 @@ fn rejects_malformed_vk_before_pairing() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
-            garbage_claims(),
+            claims(33, 840, true),
         )
     });
     assert_eq!(result, Err(IdentityError::MalformedVerifyingKey));
@@ -728,9 +728,9 @@ fn blocks_policy_violations_and_duplicate_subjects() {
 
 fn garbage_claims() -> AttestedClaims {
     AttestedClaims {
-        age: 0,
-        country_code: 0,
-        is_human: false,
+        age: 99,
+        country_code: 111,
+        is_human: true,
     }
 }
 
@@ -798,7 +798,7 @@ fn verify_and_record_requires_vk_hash() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
-            garbage_claims(),
+            claims(25, 840, true),
         )
     });
     assert_eq!(result, Err(IdentityError::VkNotRegistered));
@@ -1176,7 +1176,7 @@ fn verify_and_record_rejects_vk_mismatch() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
-            garbage_claims(),
+            claims(25, 840, true),
         )
     });
     assert_eq!(result, Err(IdentityError::VkMismatch));
@@ -1441,7 +1441,7 @@ fn with_sanctions_disabled_vk_mismatch_is_reached() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
-            garbage_claims(),
+            claims(25, 840, true),
         )
     });
     assert_eq!(result, Err(IdentityError::VkMismatch));
