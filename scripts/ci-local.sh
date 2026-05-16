@@ -22,7 +22,7 @@ run() {
   fi
 }
 
-echo "Wraith local CI (mirrors GitHub Actions)"
+echo "Wraith local CI (mirrors GitHub Actions — no deploy, no Futurenet writes)"
 
 run "cargo fmt --check" cargo fmt --all -- --check
 run "cargo clippy" cargo clippy --all-targets -- -D warnings

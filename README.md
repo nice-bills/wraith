@@ -103,17 +103,25 @@ cd /home/bills/code/wraith
 ./scripts/build-all.sh
 ```
 
-### 6) Deploy to Futurenet
+### 6) Futurenet contract (pinned — do not redeploy every merge)
 
-Uses your local `stellar-cli` identity (no keys in repo):
+E2E and integration use the **pinned** ID in `deployments/futurenet.json`. See `deployments/README.md`.
 
 ```bash
-export SOROBAN_SOURCE_ACCOUNT=bills-futurenet   # your ~/.config/stellar identity alias
-export STELLAR_NETWORK=futurenet
+export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
+make e2e-attested    # uses pinned contract, no deploy
+```
+
+**Deploy a new instance only** for intentional breaking contract releases (new contract ID; no migration):
+
+```bash
+export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
+export CONFIRM_DEPLOY=1
+export UPDATE_DEPLOYMENT_JSON=1   # commit futurenet.json only when pinning for the team
 ./scripts/deploy-contract.sh
 ```
 
-Contract ID is written to `.contract-address` and `deployments/futurenet.json`.
+CI (`make ci`) never deploys.
 
 ## Contract methods
 

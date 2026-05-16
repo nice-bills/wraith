@@ -1,4 +1,5 @@
 # Local equivalent: make ci  (scripts/ci-local.sh)
+# Never runs deploy-contract.sh — pinned ID: deployments/futurenet.json
 name: CI
 
 on:
