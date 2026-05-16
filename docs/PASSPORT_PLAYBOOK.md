@@ -1,73 +1,73 @@
-# Passport playbook — when your passport arrives
+# Passport playbook
 
-One-time setup, then three commands on passport day.
+Two paths: **A (layout)** works today on Futurenet; **B (full)** needs an NFC scan first.
 
-## Before you have the chip data
+| | Path A — Layout | Path B — Full Rarimo |
+|---|-----------------|----------------------|
+| **Scan required?** | No | Yes (`sod` + `dg1` from chip) |
+| **Proves** | RarimoQuery public-signal layout | Passport crypto + query (Phase 2) |
+| **Command** | `passport-ready-layout.sh` | `passport-ready-full.sh` |
+| **Fixture** | `fixtures/passport.layout.json` | `fixtures/passport.template.json` (after scan) |
+
+**Scan apps:** `docs/PASSPORT_SCAN.md`
+
+---
+
+## One-time setup
 
 ```bash
 cd /home/bills/code/wraith
-make setup-passport    # rarimo clone, PTAU, layout zkey (~few minutes)
-make ci                # confirm repo healthy
+make setup-passport
+make ci
 ```
 
-**Do not commit** files under `passport-data/` or real `passport.json`.
-
 ---
 
-## What you need from the chip
-
-Rarimo expects JSON with at least:
-
-| Field | Source |
-|-------|--------|
-| `sod` | Security Object (ICAO LDS) |
-| `dg1` | Data group 1 (MRZ) |
-| `dateOfBirth` | MRZ / DG1 — `YYMMDD` or `YYYYMMDD` |
-| `nationality` or `country_code` | MRZ — ISO3 (e.g. `USA`) or numeric (e.g. `840`) |
-
-Template: `tools/zk-circuits/fixtures/passport.template.json`
-
-Typical path: **NFC read → JMRTD** (Java) → export to JSON. See `docs/PRODUCTION_RUNBOOK.md` (JMRTD classpath).
-
----
-
-## Passport day (recommended)
+## Path A — Layout (Futurenet today)
 
 ```bash
-# 1. Copy your export (keep it in passport-data/)
-cp /path/from/jmrtd/my-passport.json passport-data/my-passport.json
+# Demo without passport
+./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json
 
-# 2. Validate + Rarimo register inputs + layout proof + optional Futurenet
-export SOROBAN_SOURCE_ACCOUNT=bills-futurenet   # only if using --submit
-./scripts/passport-ready.sh passport-data/my-passport.json --submit
+# With your DOB/country only (not a real passport proof)
+./scripts/passport-ready-layout.sh passport-data/claims.json --submit
 ```
 
-Without `--submit`: you still get `passport-data/runs/<timestamp>/stellar-payload.json` for review.
+Steps: validate (layout) → `passport-prove-layout.sh` → optional `stellar-submit-rarimo.sh`.
 
 ---
 
-## What each step does
+## Path B — Full (after NFC scan)
+
+```bash
+# 1. Scan with Android app → save JSON (see PASSPORT_SCAN.md)
+node scripts/normalize-passport-json.mjs ~/Downloads/dump.json passport-data/my-passport.json
+
+# 2. Register inputs + Phase 2 scaffold
+./scripts/passport-ready-full.sh passport-data/my-passport.json
+
+# 3. Futurenet (when query zkey + payload ready)
+export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
+./scripts/passport-ready-full.sh passport-data/my-passport.json --submit
+```
 
 | Step | Script | Output |
 |------|--------|--------|
-| Validate | `validate-passport-json.mjs` | Confirms `sod` + `dg1` |
+| Validate | `validate-passport-json.mjs --mode full` | Real `sod` + `dg1` |
 | Register inputs | `passport-pipeline.sh` → `process_passport.js` | `rarimo/test/inputs/generated/*.json` |
-| Layout prove | `passport-prove-layout.sh` | `proof.json`, `stellar-payload.json` |
-| On-chain | `stellar-submit-rarimo.sh` | `verify_and_record` on pinned contract |
+| Query prove | `passport-prove-rarimo-full.sh` | Full Groth16 when zkeys exist; else layout fallback |
 
-**Layout path** uses `rarimo_layout_stub.circom` — proves the **RarimoQuery claim layout** (birthDate @ signal 1, nationality @ 5) on Futurenet. It does **not** prove full passport cryptography yet.
+Phase 2 completion: build Rarimo query zkey, real `idStateRoot` / siblings (`fixtures/identity-state-mock.json` is placeholder).
 
 ---
 
-## Phase 2 — full Rarimo Groth16 (later)
+## Auto-detect mode
 
-1. `cd tools/zk-circuits/rarimo && pnpm run build:production` (long)
-2. Trusted setup for register + query zkeys
-3. Witness + `snarkjs groth16 prove` on **query** circuit
-4. Identity state: `idStateRoot` + `idStateSiblings` (see `fixtures/identity-state-mock.json`)
-5. `proof-adapter --rarimo-mode` → `stellar-submit-rarimo.sh`
+```bash
+./scripts/passport-ready.sh passport-data/my-passport.json
+```
 
-Until then, use **attested path** for fastest MVP (`make e2e-attested`) if you only need prover-backed claims.
+Uses **full** if `sod`/`dg1` validate; otherwise **layout**.
 
 ---
 
@@ -75,20 +75,13 @@ Until then, use **attested path** for fastest MVP (`make e2e-attested`) if you o
 
 | Problem | Fix |
 |---------|-----|
-| `process_passport` ASN.1 error | SOD not valid ICAO; re-export from chip with JMRTD |
-| `cannot map nationality` | Add `"country_code": 840` to JSON |
+| `Illegal character at offset 0` | Not real chip data — scan with app in PASSPORT_SCAN.md |
+| `Full path missing sod/dg1` | Run normalize script or fill template after scan |
 | `missing layout zkey` | `make setup-passport` |
-| `CONFIRM_DEPLOY` | Don't deploy — use pinned `deployments/futurenet.json` |
-| Age wrong on-chain | Set `CURRENT_DATE_YMD=260516` (YYMMDD UTC) |
+| `process_passport` fails | Re-export; check dg15 for your passport type |
 
 ---
 
 ## Pinned contract
 
-`deployments/futurenet.json` — use `claim_layout: RarimoQuery` and `current_date_ymd` on `verify_and_record`.
-
-Manual submit:
-
-```bash
-./scripts/lib/stellar-submit-rarimo.sh passport-data/runs/<run>/stellar-payload.json myapp
-```
+`deployments/futurenet.json` — `claim_layout: RarimoQuery`, `current_date_ymd` on `verify_and_record`.

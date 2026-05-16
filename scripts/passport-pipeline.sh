@@ -20,7 +20,7 @@ if [[ ! -d "$RARIMO" ]]; then
   exit 1
 fi
 
-node "$ROOT_DIR/scripts/validate-passport-json.mjs" "$PASSPORT_JSON"
+node "$ROOT_DIR/scripts/validate-passport-json.mjs" --mode full "$PASSPORT_JSON"
 
 if [[ ! -f "$PASSPORT_JSON" ]]; then
   echo "error: file not found: $PASSPORT_JSON"

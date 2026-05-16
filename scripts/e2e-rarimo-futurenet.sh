@@ -8,7 +8,7 @@ ZK="$ROOT_DIR/tools/zk-circuits"
 BUILD="$ZK/build/rarimo-layout-e2e"
 : "${SOROBAN_SOURCE_ACCOUNT:?Set SOROBAN_SOURCE_ACCOUNT}"
 
-PASSPORT_FIXTURE="${PASSPORT_FIXTURE:-$ZK/fixtures/passport.template.json}"
+PASSPORT_FIXTURE="${PASSPORT_FIXTURE:-$ZK/fixtures/passport.layout.json}"
 [[ -f "$ZK/build/passport-layout/passport_layout_final.zkey" ]] || {
   echo "Missing layout zkey. Run: make setup-passport"
   exit 1

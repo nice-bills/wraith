@@ -34,9 +34,14 @@ setup-zk:
 setup-passport:
 	./scripts/setup-passport-stack.sh
 
+passport-layout:
+	./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json
+
 passport-ready:
-	@echo "Usage: ./scripts/passport-ready.sh passport-data/my-passport.json [--submit]"
-	@echo "First run: make setup-passport"
+	@echo "Path A (layout): ./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json"
+	@echo "Path B (full):   ./scripts/passport-ready-full.sh passport-data/my-passport.json"
+	@echo "Scan guide:      docs/PASSPORT_SCAN.md"
+	@echo "First run:       make setup-passport"
 
 benchmark-futurenet:
 	./scripts/benchmark-futurenet.sh
