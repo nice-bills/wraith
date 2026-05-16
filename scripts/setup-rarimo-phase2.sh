@@ -24,8 +24,11 @@ for f in identityStateVerifier.circom registerIdentityLight.circom; do
   fi
 done
 
+mkdir -p "$RARIMO/test/circuits"
 QUERY_WRAPPER="$RARIMO/test/circuits/queryIdentity.circom"
-if [[ ! -f "$QUERY_WRAPPER" ]]; then
+if [[ -f "$PATCHES/queryIdentity.circom" ]]; then
+  cp "$PATCHES/queryIdentity.circom" "$QUERY_WRAPPER"
+elif [[ ! -f "$QUERY_WRAPPER" ]]; then
   cat > "$QUERY_WRAPPER" << 'EOF'
 pragma circom  2.1.6;
 include "../../circuits/identityManagement/queryIdentity.circom";

@@ -24,7 +24,9 @@ for f in identityStateVerifier.circom registerIdentityLight.circom; do
   fi
 done
 
-mkdir -p "$BUILD"
+mkdir -p "$BUILD" "$RARIMO/test/circuits"
+cp "$PATCHES/queryIdentityTD1.circom" "$RARIMO/test/circuits/queryIdentityTD1.circom"
+
 echo "=== Compiling queryIdentityTD1 (national ID / TD1) ==="
 (cd "$RARIMO" && circom test/circuits/queryIdentityTD1.circom --r1cs --wasm -o "$BUILD")
 
