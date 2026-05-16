@@ -10,18 +10,20 @@ PASSPORT_JSON="${1:-}"
 if [[ -z "$PASSPORT_JSON" ]]; then
   echo "Usage: $0 <passport.json>"
   echo ""
-  echo "Place passport JSON under: $RARIMO/test/inputs/passport/"
-  echo "Generate with JMRTD (see docs/PRODUCTION_RUNBOOK.md) or Rarimo test vectors."
-  exit 1
-fi
-
-if [[ ! -f "$PASSPORT_JSON" ]]; then
-  echo "error: file not found: $PASSPORT_JSON"
+  echo "Or run full flow: ./scripts/passport-ready.sh passport-data/my-passport.json"
+  echo "Template: tools/zk-circuits/fixtures/passport.template.json"
   exit 1
 fi
 
 if [[ ! -d "$RARIMO" ]]; then
-  echo "error: rarimo submodule missing. Run: cd tools/zk-circuits && pnpm run setup:rarimo"
+  echo "error: rarimo missing. Run: make setup-passport"
+  exit 1
+fi
+
+node "$ROOT_DIR/scripts/validate-passport-json.mjs" "$PASSPORT_JSON"
+
+if [[ ! -f "$PASSPORT_JSON" ]]; then
+  echo "error: file not found: $PASSPORT_JSON"
   exit 1
 fi
 
@@ -31,10 +33,15 @@ cp "$PASSPORT_JSON" "$DEST"
 echo "Copied to $DEST"
 
 echo "Generating Rarimo register inputs..."
+BASENAME="$(basename "$PASSPORT_JSON")"
 cd "$RARIMO"
-node test/process_passport.js "test/inputs/passport/$(basename "$PASSPORT_JSON")"
+node -e "
+const { processPassport } = require('./test/process_passport.js');
+const name = processPassport('test/inputs/passport/${BASENAME}');
+console.log('Circuit name:', name);
+"
 
 echo ""
-echo "Generated files under $RARIMO/test/inputs/generated/ and circuits/generated/"
-echo "Next: build Rarimo circuits (pnpm run build:production) and prove query circuit."
-echo "Then: proof-adapter --rarimo-mode --current-date YYMMDD ..."
+echo "Generated: $RARIMO/test/inputs/generated/"
+echo "Next: ./scripts/passport-prove-layout.sh $PASSPORT_JSON"
+echo "  or:  ./scripts/passport-ready.sh $PASSPORT_JSON [--submit]"

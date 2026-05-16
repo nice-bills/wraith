@@ -57,6 +57,15 @@ Before pushing, run the same checks as GitHub Actions:
 make ci
 ```
 
+### Passport (when you have chip data)
+
+```bash
+make setup-passport   # once: rarimo + layout zkey
+# then: ./scripts/passport-ready.sh passport-data/my-passport.json [--submit]
+```
+
+See `docs/PASSPORT_PLAYBOOK.md`.
+
 Build the contract WASM:
 
 ```bash

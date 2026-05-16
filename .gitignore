@@ -9,8 +9,13 @@ package-lock.json
 .env
 .env.*
 
-# Rarimo circuits (clone via: cd tools/zk-circuits && pnpm run setup:rarimo)
+# Rarimo circuits (clone via: make setup-passport)
 tools/zk-circuits/rarimo/
+
+# Passport chip exports — never commit real files
+passport-data/*
+!passport-data/README.md
+!passport-data/.gitkeep
 
 # ZK proving artifacts
 tools/zk-circuits/build/

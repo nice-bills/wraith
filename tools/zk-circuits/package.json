@@ -5,7 +5,7 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "setup": "pnpm install && pnpm run setup:rarimo",
-    "setup:rarimo": "git submodule update --init --recursive && cd rarimo && pnpm install",
+    "setup:rarimo": "bash ../../scripts/setup-rarimo.sh",
     "build:demo": "circom circuits/age_check.circom --r1cs --wasm --sym -o build && circom circuits/passport_verifier.circom --r1cs --wasm --sym -o build && circom circuits/simple_mult.circom --r1cs --wasm --sym -o build",
     "build:production": "cd rarimo && pnpm run compile",
     "trusted-setup": "bash setup-trusted-setup.sh",

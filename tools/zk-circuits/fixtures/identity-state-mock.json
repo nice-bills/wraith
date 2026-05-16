@@ -1,0 +1,9 @@
+{
+  "_comment": "Placeholder for Rarimo queryIdentity idStateRoot + siblings (depth 80). Replace with real identity tree when register flow is on-chain.",
+  "idStateRoot": "0",
+  "idStateSiblings": [],
+  "eventID": "0",
+  "eventData": "0",
+  "currentDate": "260516",
+  "selector": "0"
+}

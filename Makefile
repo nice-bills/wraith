@@ -1,4 +1,4 @@
-.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo setup-zk benchmark-futurenet
+.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo setup-zk setup-passport passport-ready benchmark-futurenet
 
 test:
 	cargo test
@@ -30,6 +30,13 @@ e2e-rarimo:
 
 setup-zk:
 	./scripts/setup-production-zk.sh
+
+setup-passport:
+	./scripts/setup-passport-stack.sh
+
+passport-ready:
+	@echo "Usage: ./scripts/passport-ready.sh passport-data/my-passport.json [--submit]"
+	@echo "First run: make setup-passport"
 
 benchmark-futurenet:
 	./scripts/benchmark-futurenet.sh

@@ -1,0 +1,18 @@
+{
+  "_comment": "Copy to passport-data/my-passport.json — never commit real passport files.",
+  "sod": "<base64 or hex — Security Object from chip>",
+  "dg1": "<base64 or hex — Machine Readable Zone / DG1>",
+  "dg15": "<optional — Active Authentication public key>",
+  "dateOfBirth": "950101",
+  "documentExpiryDate": "300101",
+  "documentNumber": "",
+  "nationality": "USA",
+  "country_code": 840,
+  "gender": "",
+  "lastName": "",
+  "firstName": "",
+  "documentType": "",
+  "signature": "",
+  "passportImageRaw": "",
+  "issuingAuthority": ""
+}
