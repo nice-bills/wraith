@@ -45,24 +45,21 @@ echo ""
 echo "=== Register circuit inputs (process_passport) ==="
 "$ROOT_DIR/scripts/passport-pipeline.sh" "$PASSPORT_JSON"
 
-echo ""
-echo "=== Query prove (Phase 2 scaffold) ==="
-FULL_LOG="$RUN_DIR/full-prove.log"
-if "$ROOT_DIR/scripts/passport-prove-rarimo-full.sh" "$PASSPORT_JSON" "$RUN_DIR" | tee "$FULL_LOG"; then
-  PAYLOAD="$(sed -n 's/^PAYLOAD=//p' "$FULL_LOG" | tail -1)"
-else
-  echo ""
-  echo "⚠ Full query prove not complete yet — register inputs are under rarimo/test/inputs/generated/"
-  echo "  Continue with docs/PASSPORT_PLAYBOOK.md Phase 2 (build zkeys, identity SMT)."
-  PAYLOAD="$(sed -n 's/^PAYLOAD=//p' "$RUN_DIR/layout-fallback.log" 2>/dev/null | tail -1 || true)"
-fi
+[[ -f "${RARIMO_QUERY_ZKEY:-$ROOT_DIR/tools/zk-circuits/build/rarimo-query/queryIdentity_final.zkey}" ]] || {
+  echo "error: run ./scripts/setup-rarimo-phase2.sh first"
+  exit 1
+}
 
-if [[ -n "${PAYLOAD:-}" && -f "$PAYLOAD" && "$SUBMIT" == "1" ]]; then
+echo ""
+echo "=== Query prove (Phase 2 — full Groth16 + identity SMT) ==="
+FULL_LOG="$RUN_DIR/full-prove.log"
+"$ROOT_DIR/scripts/passport-prove-rarimo-full.sh" "$PASSPORT_JSON" "$RUN_DIR" | tee "$FULL_LOG"
+PAYLOAD="$(sed -n 's/^PAYLOAD=//p' "$FULL_LOG" | tail -1)"
+[[ -n "$PAYLOAD" && -f "$PAYLOAD" ]] || { echo "error: Phase 2 prove failed"; exit 1; }
+
+if [[ "$SUBMIT" == "1" ]]; then
   : "${SOROBAN_SOURCE_ACCOUNT:?Set SOROBAN_SOURCE_ACCOUNT}"
   "$ROOT_DIR/scripts/lib/stellar-submit-rarimo.sh" "$PAYLOAD" "passport"
-elif [[ "$SUBMIT" == "1" ]]; then
-  echo "error: no payload to submit — finish Phase 2 prove first"
-  exit 1
 fi
 
 echo "=== full path complete (run: $RUN_DIR) ==="

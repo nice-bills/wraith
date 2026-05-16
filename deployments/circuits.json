@@ -9,6 +9,14 @@
       "circuit": "rarimo_layout_stub.circom",
       "claimLayout": "RarimoQuery",
       "publicSignalLayout": "nullifier,birthDate,expirationDate,pad3,pad4,nationality"
+    },
+    "queryPhase2": {
+      "circuit": "rarimo/test/circuits/queryIdentity.circom",
+      "zkey": "tools/zk-circuits/build/rarimo-query/queryIdentity_final.zkey",
+      "wasm": "tools/zk-circuits/build/rarimo-query/queryIdentity_js/queryIdentity.wasm",
+      "publicSignals": 23,
+      "claimLayout": "RarimoQuery",
+      "setup": "scripts/setup-rarimo-phase2.sh"
     }
   },
   "ciOnly": ["e2e_claims.circom"],

@@ -1,49 +1,70 @@
 #!/usr/bin/env bash
-# Phase 2 scaffold: after process_passport, build query witness inputs and prove when zkeys exist.
+# Phase 2: full Rarimo queryIdentity Groth16 → stellar-payload.json
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RARIMO="$ROOT_DIR/tools/zk-circuits/rarimo"
 PASSPORT_JSON="${1:?passport.json}"
 OUT_DIR="${2:-$ROOT_DIR/passport-data/runs/full-$(date +%Y%m%d-%H%M%S)}"
-IDENTITY="${IDENTITY_STATE_JSON:-$ROOT_DIR/tools/zk-circuits/fixtures/identity-state-mock.json}"
+BUILD="${RARIMO_QUERY_BUILD:-$ROOT_DIR/tools/zk-circuits/build/rarimo-query}"
+QUERY_ZKEY="${RARIMO_QUERY_ZKEY:-$BUILD/queryIdentity_final.zkey}"
+QUERY_WASM="${RARIMO_QUERY_WASM:-$BUILD/queryIdentity_js/queryIdentity.wasm}"
+CURRENT_DATE="${CURRENT_DATE_YMD:-$(date -u +%y%m%d)}"
+GENERATED="$RARIMO/test/inputs/generated"
 
 mkdir -p "$OUT_DIR"
-BASENAME="$(basename "$PASSPORT_JSON")"
-GENERATED="$RARIMO/test/inputs/generated"
+
+# shellcheck source=/dev/null
+[[ -f "$BUILD/phase2.env" ]] && source "$BUILD/phase2.env"
 
 echo "=== Rarimo full prove (Phase 2) ==="
 echo "Passport: $PASSPORT_JSON"
-echo "Identity: $IDENTITY (set IDENTITY_STATE_JSON for real SMT)"
+echo "Out:      $OUT_DIR"
 
-# Ensure register inputs exist
+[[ -f "$QUERY_ZKEY" && -f "$QUERY_WASM" ]] || {
+  echo "error: query zkey/wasm missing. Run: ./scripts/setup-rarimo-phase2.sh"
+  exit 1
+}
+
 if ! ls "$GENERATED"/*.json >/dev/null 2>&1; then
-  echo "error: no files in $GENERATED — run passport-pipeline.sh first"
+  echo "error: no register inputs — run passport-pipeline.sh first"
   exit 1
 fi
 
-LATEST_GEN="$(ls -t "$GENERATED"/*.json | head -1)"
-echo "Using generated input: $LATEST_GEN"
-cp "$LATEST_GEN" "$OUT_DIR/register-input.json"
-cp "$IDENTITY" "$OUT_DIR/identity-state.json"
+REGISTER_INPUT="$(ls -t "$GENERATED"/*.json | head -1)"
+echo "Register input: $REGISTER_INPUT"
+cp "$REGISTER_INPUT" "$OUT_DIR/register-input.json"
 
-# Rarimo production build is heavy; document gate
-QUERY_ZKEY="${RARIMO_QUERY_ZKEY:-}"
-if [[ -z "$QUERY_ZKEY" || ! -f "$QUERY_ZKEY" ]]; then
-  echo ""
-  echo "Phase 2 steps remaining:"
-  echo "  1. cd tools/zk-circuits/rarimo && pnpm run zkit-make && pnpm run zkit-compile"
-  echo "  2. Trusted setup for register + queryIdentity zkeys (see docs/PRODUCTION_ZK_ROADMAP.md)"
-  echo "  3. export RARIMO_QUERY_ZKEY=/path/to/query_final.zkey"
-  echo "  4. snarkjs groth16 prove with witness from test/inputs/generated + identity state"
-  echo "  5. proof-adapter --rarimo-mode → stellar-submit-rarimo.sh"
-  echo ""
-  echo "Falling back to layout prove for Futurenet smoke (not full passport crypto)..."
-  "$ROOT_DIR/scripts/passport-prove-layout.sh" "$PASSPORT_JSON" "$OUT_DIR" | tee "$OUT_DIR/layout-fallback.log"
-  sed -n 's/^PAYLOAD=//p' "$OUT_DIR/layout-fallback.log" | tail -1 | xargs -I{} echo "PAYLOAD={}"
-  exit 0
-fi
+echo ""
+echo "=== Register witness (public outputs) ==="
+"$ROOT_DIR/scripts/passport-register-witness.sh" "$OUT_DIR/register-input.json" "$OUT_DIR"
 
-echo "Query zkey: $QUERY_ZKEY"
-echo "TODO: wire witness + snarkjs fullprove for queryIdentity (track in PRODUCTION_ZK_ROADMAP)"
-exit 1
+echo ""
+echo "=== Query witness input (identity SMT) ==="
+node "$ROOT_DIR/scripts/lib/build-rarimo-query-input.mjs" \
+  "$OUT_DIR/register-input.json" \
+  "$OUT_DIR/register-public.json" \
+  "$OUT_DIR/query-input.json"
+
+echo ""
+echo "=== Query Groth16 prove ==="
+snarkjs groth16 fullprove \
+  "$OUT_DIR/query-input.json" \
+  "$QUERY_WASM" \
+  "$QUERY_ZKEY" \
+  "$OUT_DIR/proof.json" \
+  "$OUT_DIR/public.json"
+
+cp "$BUILD/verification_key.json" "$OUT_DIR/verification_key.json" 2>/dev/null || \
+  snarkjs zkey export verificationkey "$QUERY_ZKEY" "$OUT_DIR/verification_key.json"
+
+PAYLOAD="$OUT_DIR/stellar-payload.json"
+cargo run -q -p proof-adapter -- \
+  --rarimo-mode --current-date "$CURRENT_DATE" \
+  --proof "$OUT_DIR/proof.json" \
+  --vk "$OUT_DIR/verification_key.json" \
+  --public "$OUT_DIR/public.json" \
+  --out "$PAYLOAD"
+
+echo "PAYLOAD=$PAYLOAD"
+echo "=== Phase 2 prove complete ==="

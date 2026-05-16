@@ -67,9 +67,11 @@ make passport-layout  # Path A demo (no NFC scan)
 | Path | When | Command |
 |------|------|---------|
 | **A — Layout** | Demo / Futurenet RarimoQuery | `./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json` |
-| **B — Full** | After NFC scan (`sod` + `dg1`) | `./scripts/passport-ready-full.sh passport-data/my-passport.json` |
+| **B — Full** | After NFC scan + Phase 2 setup | `make setup-rarimo-phase2` then `passport-ready-full.sh` |
 
 Scan apps (Android/iOS): `docs/PASSPORT_SCAN.md` · Playbook: `docs/PASSPORT_PLAYBOOK.md`
+
+Phase 2 proves **queryIdentity** (23 public signals) with dev identity SMT — not the layout stub.
 
 Build the contract WASM:
 

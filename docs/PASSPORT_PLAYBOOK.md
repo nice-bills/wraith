@@ -57,7 +57,14 @@ export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
 | Register inputs | `passport-pipeline.sh` → `process_passport.js` | `rarimo/test/inputs/generated/*.json` |
 | Query prove | `passport-prove-rarimo-full.sh` | Full Groth16 when zkeys exist; else layout fallback |
 
-Phase 2 completion: build Rarimo query zkey, real `idStateRoot` / siblings (`fixtures/identity-state-mock.json` is placeholder).
+Phase 2 setup (once per machine, ~150MB PTAU download + zkey):
+
+```bash
+./scripts/setup-rarimo-phase2.sh
+source tools/zk-circuits/build/rarimo-query/phase2.env
+```
+
+Identity SMT: `build-rarimo-query-input.mjs` builds a **single-leaf dev tree** (same as Rarimo tests) from register public outputs + `skIdentity`. For production, replace with on-chain `idStateRoot` / siblings.
 
 ---
 
