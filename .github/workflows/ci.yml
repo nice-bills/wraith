@@ -8,6 +8,10 @@ on:
   pull_request:
     branches: [main]
 
+# Actions (checkout, setup-node, pnpm) run on Node 24 — avoids Node 20 deprecation warnings.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   rust:
     runs-on: ubuntu-latest
@@ -36,7 +40,7 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install and test SDK
