@@ -14,9 +14,11 @@
       "circuit": "rarimo/test/circuits/queryIdentity.circom",
       "zkey": "tools/zk-circuits/build/rarimo-query/queryIdentity_final.zkey",
       "wasm": "tools/zk-circuits/build/rarimo-query/queryIdentity_js/queryIdentity.wasm",
+      "vkHash": "60492d726f504e79f223ae62711f6fb401ccabf53c5e8948eb5879dc58c9ceb1",
       "publicSignals": 23,
       "claimLayout": "RarimoQuery",
-      "setup": "scripts/setup-rarimo-phase2.sh"
+      "setup": "scripts/setup-rarimo-phase2.sh",
+      "note": "Dev PTAU-17 zkey; re-pin vkHash after production ceremony"
     }
   },
   "ciOnly": ["e2e_claims.circom"],

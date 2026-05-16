@@ -31,6 +31,17 @@ run "pnpm install --frozen-lockfile" pnpm install --frozen-lockfile
 run "SDK build (tsc)" pnpm --filter @wraith/stellar-identity-sdk run build
 run "SDK tests" pnpm --filter @wraith/stellar-identity-sdk test
 run "adapter smoke" make smoke
+run "passport layout validate" node scripts/validate-passport-json.mjs --mode layout \
+  tools/zk-circuits/fixtures/passport.layout.json
+
+if [[ -f tools/zk-circuits/build/passport-layout/passport_layout_final.zkey ]]; then
+  run "passport layout prove smoke" ./scripts/passport-ready-layout.sh \
+    tools/zk-circuits/fixtures/passport.layout.json
+else
+  echo ""
+  echo "=== passport layout prove smoke (skipped) ==="
+  echo "  No layout zkey — run: make setup-passport"
+fi
 
 echo ""
 echo -e "${GREEN}All CI checks passed.${NC}"

@@ -28,6 +28,9 @@ e2e-groth16:
 e2e-rarimo:
 	./scripts/e2e-rarimo-futurenet.sh
 
+e2e-rarimo-query:
+	./scripts/e2e-rarimo-query-futurenet.sh
+
 setup-zk:
 	./scripts/setup-production-zk.sh
 

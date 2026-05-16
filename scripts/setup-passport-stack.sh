@@ -49,10 +49,13 @@ else
 fi
 
 echo ""
+echo "=== Optional: Phase 2 query zkey (full Rarimo, ~144MB PTAU) ==="
+echo "  make setup-rarimo-phase2"
+echo ""
 echo "=== Ready ==="
 echo "Put passport JSON in:  passport-data/  (gitignored)"
 echo "When you have a file:"
-echo "  ./scripts/passport-ready.sh passport-data/my-passport.json"
-echo "  ./scripts/passport-ready.sh passport-data/my-passport.json --submit"
+echo "  ./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json"
+echo "  ./scripts/passport-ready-full.sh passport-data/my-passport.json [--submit]"
 echo ""
 echo "See docs/PASSPORT_PLAYBOOK.md"
