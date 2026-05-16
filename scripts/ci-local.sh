@@ -28,6 +28,7 @@ run "cargo fmt --check" cargo fmt --all -- --check
 run "cargo clippy" cargo clippy --all-targets -- -D warnings
 run "cargo test --all" cargo test --all
 run "pnpm install --frozen-lockfile" pnpm install --frozen-lockfile
+run "SDK build (tsc)" pnpm --filter @wraith/stellar-identity-sdk run build
 run "SDK tests" pnpm --filter @wraith/stellar-identity-sdk test
 run "adapter smoke" make smoke
 

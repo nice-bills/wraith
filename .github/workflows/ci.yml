@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -27,23 +29,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
       - uses: pnpm/action-setup@v4
         with:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install and test SDK
         run: |
           pnpm install --frozen-lockfile
+          pnpm --filter @wraith/stellar-identity-sdk run build
           pnpm --filter @wraith/stellar-identity-sdk test
 
   adapter-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: false
       - uses: dtolnay/rust-toolchain@stable
       - name: Adapter smoke
         run: make smoke

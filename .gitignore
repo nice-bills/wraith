@@ -9,6 +9,9 @@ package-lock.json
 .env
 .env.*
 
+# Rarimo circuits (clone via: cd tools/zk-circuits && pnpm run setup:rarimo)
+tools/zk-circuits/rarimo/
+
 # ZK proving artifacts
 tools/zk-circuits/build/
 tools/zk-circuits/proof/
