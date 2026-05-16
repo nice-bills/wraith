@@ -1,0 +1,3 @@
+# Timestamped benchmark runs; keep repo clean. Re-run: make benchmark-futurenet
+*.json
+!.gitignore

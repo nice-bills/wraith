@@ -1,7 +1,10 @@
-.PHONY: test wasm sdk build-all smoke e2e-attested e2e-groth16
+.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo setup-zk benchmark-futurenet
 
 test:
 	cargo test
+
+ci:
+	./scripts/ci-local.sh
 
 wasm:
 	cargo build -p stellar-identity-core --target wasm32v1-none --release
@@ -21,4 +24,13 @@ e2e-attested:
 
 e2e-groth16:
 	./scripts/e2e-groth16-futurenet.sh
+
+e2e-rarimo:
+	./scripts/e2e-rarimo-futurenet.sh
+
+setup-zk:
+	./scripts/setup-production-zk.sh
+
+benchmark-futurenet:
+	./scripts/benchmark-futurenet.sh
 

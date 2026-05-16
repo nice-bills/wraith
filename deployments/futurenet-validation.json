@@ -1,0 +1,30 @@
+{
+  "network": "futurenet",
+  "contractId": "CALSU3MUVR6CC3MT42SKKHM32RNF5NZQQFCUTQNF4G2NTCVDO4CMLLVO",
+  "validatedAt": "2026-05-16T00:00:00Z",
+  "results": [
+    {
+      "name": "e2e-attested",
+      "appId": "e2eatt1778960422",
+      "ledger": 2947398,
+      "claimLayout": "Standard",
+      "claims": { "age": 30, "country_code": 840, "is_human": true }
+    },
+    {
+      "name": "e2e-groth16",
+      "appId": "e2egrth1778960465",
+      "ledger": 2947407,
+      "claimLayout": "Standard",
+      "claims": { "age": 30, "country_code": 840, "is_human": true }
+    },
+    {
+      "name": "e2e-rarimo-layout",
+      "appId": "e2erarm1778960509",
+      "ledger": 2947415,
+      "claimLayout": "RarimoQuery",
+      "claims": { "age": 31, "country_code": 840, "is_human": true },
+      "circuit": "rarimo_layout_stub.circom",
+      "note": "Pipeline stub; swap to Rarimo queryIdentity zkey for production passport proofs"
+    }
+  ]
+}

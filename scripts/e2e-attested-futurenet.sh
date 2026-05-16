@@ -14,7 +14,7 @@ NULLIFIER="$(openssl rand -hex 32)"
 CLAIMS='{"age":30,"country_code":840,"is_human":true}'
 ZERO32="0000000000000000000000000000000000000000000000000000000000000000"
 POLICY=$(cat <<EOF
-{"owner":"$PROVER","min_age":18,"require_humanity":false,"sanctions_root":"$ZERO32","excluded_countries":[],"expiration_window":0,"sanctions_enabled":false}
+{"owner":"$PROVER","min_age":18,"require_humanity":false,"sanctions_root":"$ZERO32","excluded_countries":[],"expiration_window":0,"sanctions_enabled":false,"claim_layout":"Standard"}
 EOF
 )
 

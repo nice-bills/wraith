@@ -1,0 +1,16 @@
+{
+  "production": {
+    "passport": {
+      "source": "rarimo/passport-zk-circuits",
+      "register": "registerIdentityBuilder",
+      "query": "queryIdentity"
+    },
+    "pipelineStub": {
+      "circuit": "rarimo_layout_stub.circom",
+      "claimLayout": "RarimoQuery",
+      "publicSignalLayout": "nullifier,birthDate,expirationDate,pad3,pad4,nationality"
+    }
+  },
+  "ciOnly": ["e2e_claims.circom"],
+  "demoDeprecated": ["age_check.circom", "passport_verifier.circom", "simple_mult.circom"]
+}

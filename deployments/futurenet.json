@@ -2,13 +2,13 @@
   "network": "futurenet",
   "rpcUrl": "https://rpc-futurenet.stellar.org:443",
   "networkPassphrase": "Test SDF Future Network ; October 2022",
-  "contractId": "CCILEZJOK7TKCLI3R2UN2B2TSKWILT6CWAUEQ7DWWH2L4WFAFLTOUVKM",
+  "contractId": "CALSU3MUVR6CC3MT42SKKHM32RNF5NZQQFCUTQNF4G2NTCVDO4CMLLVO",
   "wasmPath": "target/wasm32v1-none/release/stellar_identity_core.wasm",
-  "wasmSha256": "d0790dec11694b83e08050c9c2b293d3565cd2a72f741af5dc9eaf3068bccb5f",
-  "deployedAt": "2026-05-15T17:37:36Z",
+  "wasmSha256": "ddf12274fe7b75e2c9169bf9459decd62df75b04b879c3e7b5b9343490e94be6",
+  "deployedAt": "2026-05-16T19:40:06Z",
   "admin": "GDYLBKGXBZ4QWVKZGGEWEZ2CY4BNVULZ62JNI6JYGOENLNH6I5RC5SA5",
   "prover": "GDYLBKGXBZ4QWVKZGGEWEZ2CY4BNVULZ62JNI6JYGOENLNH6I5RC5SA5",
   "packageVersion": "0.1.0",
-  "previousContractId": "CDN4IVFM4BN466RIGW7L4I475WJ3UGKL2CCQD23DT5CEQU27BC6TBIDI",
+  "previousContractId": "CCILEZJOK7TKCLI3R2UN2B2TSKWILT6CWAUEQ7DWWH2L4WFAFLTOUVKM",
   "notes": "fr_to_u32 BE decode for Groth16 claim binding"
 }

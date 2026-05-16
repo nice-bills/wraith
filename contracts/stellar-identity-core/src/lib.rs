@@ -46,6 +46,15 @@ pub enum IdentityError {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[contracttype]
+pub enum ClaimLayout {
+    /// Public signals `[0]=age, [1]=country_code, [2]=is_human` (e.g. e2e_claims).
+    Standard,
+    /// Rarimo query layout: `[1]=birthDate (YYMMDD)`, `[5]=nationality`; humanity is always true.
+    RarimoQuery,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
 pub struct AppPolicy {
     pub owner: Address,
     pub min_age: u32,
@@ -54,6 +63,7 @@ pub struct AppPolicy {
     pub excluded_countries: Vec<u32>,
     pub expiration_window: u32,
     pub sanctions_enabled: bool,
+    pub claim_layout: ClaimLayout,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -252,17 +262,9 @@ impl StellarIdentityCore {
         Self::validate_policy_registration(&policy)?;
         policy.owner.require_auth();
         let owner = policy.owner.clone();
-        Self::persist_set(
-            &env,
-            &DataKey::AppPolicy(app_id.clone()),
-            &policy,
-        );
+        Self::persist_set(&env, &DataKey::AppPolicy(app_id.clone()), &policy);
         if let Some(hash) = vk_hash {
-            Self::persist_set(
-                &env,
-                &DataKey::AppVkHash(app_id.clone()),
-                &hash,
-            );
+            Self::persist_set(&env, &DataKey::AppVkHash(app_id.clone()), &hash);
         }
         AppRegistered {
             app_id: app_id.clone(),
@@ -291,17 +293,9 @@ impl StellarIdentityCore {
         Self::validate_policy_registration(&policy)?;
         policy.owner.require_auth();
         let owner = policy.owner.clone();
-        Self::persist_set(
-            &env,
-            &DataKey::AppPolicy(app_id.clone()),
-            &policy,
-        );
+        Self::persist_set(&env, &DataKey::AppPolicy(app_id.clone()), &policy);
         if let Some(hash) = vk_hash {
-            Self::persist_set(
-                &env,
-                &DataKey::AppVkHash(app_id.clone()),
-                &hash,
-            );
+            Self::persist_set(&env, &DataKey::AppVkHash(app_id.clone()), &hash);
         }
         AppUpdated {
             app_id: app_id.clone(),
@@ -334,7 +328,10 @@ impl StellarIdentityCore {
     }
 
     pub fn get_policy(env: Env, app_id: Symbol) -> Option<AppPolicy> {
-        let policy = env.storage().persistent().get(&DataKey::AppPolicy(app_id.clone()));
+        let policy = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AppPolicy(app_id.clone()));
         if policy.is_some() {
             Self::extend_persistent(&env, &DataKey::AppPolicy(app_id));
         }
@@ -346,7 +343,10 @@ impl StellarIdentityCore {
     }
 
     pub fn get_vk_hash(env: Env, app_id: Symbol) -> Option<BytesN<32>> {
-        let hash = env.storage().persistent().get(&DataKey::AppVkHash(app_id.clone()));
+        let hash = env
+            .storage()
+            .persistent()
+            .get(&DataKey::AppVkHash(app_id.clone()));
         if hash.is_some() {
             Self::extend_persistent(&env, &DataKey::AppVkHash(app_id));
         }
@@ -363,6 +363,7 @@ impl StellarIdentityCore {
         vk: VerificationKey,
         proof: Proof,
         pub_signals: Vec<Bn254Fr>,
+        current_date_ymd: u32,
         claims: AttestedClaims,
     ) -> Result<VerificationRecord, IdentityError> {
         Self::ensure_initialized(&env)?;
@@ -383,13 +384,13 @@ impl StellarIdentityCore {
             return Err(IdentityError::InsufficientPublicSignals);
         }
 
-        let computed_pub_inputs_hash =
-            Self::compute_pub_signals_hash_internal(&env, &pub_signals)?;
+        let computed_pub_inputs_hash = Self::compute_pub_signals_hash_internal(&env, &pub_signals)?;
         if public_inputs_hash != computed_pub_inputs_hash {
             return Err(IdentityError::PublicInputsHashMismatch);
         }
 
-        let derived_claims = Self::derive_claims_from_signals(&pub_signals)?;
+        let derived_claims =
+            Self::derive_claims_from_signals(&pub_signals, &policy.claim_layout, current_date_ymd)?;
         Self::verify_claims_match(&derived_claims, &claims)?;
 
         Self::validate_policy(&policy, &derived_claims)?;
@@ -748,10 +749,7 @@ impl StellarIdentityCore {
         bytes.append(&vk.gamma.to_bytes().into());
         bytes.append(&vk.delta.to_bytes().into());
         for i in 0..vk.ic.len() {
-            let point = vk
-                .ic
-                .get(i)
-                .ok_or(IdentityError::MalformedVerifyingKey)?;
+            let point = vk.ic.get(i).ok_or(IdentityError::MalformedVerifyingKey)?;
             bytes.append(&point.to_bytes().into());
         }
         Ok(env.crypto().sha256(&bytes).into())
@@ -811,27 +809,86 @@ impl StellarIdentityCore {
 
     fn derive_claims_from_signals(
         pub_signals: &Vec<Bn254Fr>,
+        layout: &ClaimLayout,
+        current_date_ymd: u32,
     ) -> Result<AttestedClaims, IdentityError> {
-        if pub_signals.len() < 3 {
-            return Err(IdentityError::InsufficientPublicSignals);
+        match layout {
+            ClaimLayout::Standard => {
+                if pub_signals.len() < 3 {
+                    return Err(IdentityError::InsufficientPublicSignals);
+                }
+                let age_fr = pub_signals
+                    .get(0)
+                    .ok_or(IdentityError::InsufficientPublicSignals)?;
+                let country_fr = pub_signals
+                    .get(1)
+                    .ok_or(IdentityError::InsufficientPublicSignals)?;
+                let is_human_fr = pub_signals
+                    .get(2)
+                    .ok_or(IdentityError::InsufficientPublicSignals)?;
+                let age = Self::fr_to_u32(&age_fr)?;
+                let country_code = Self::fr_to_u32(&country_fr)?;
+                let is_human_val = Self::fr_to_u32(&is_human_fr)?;
+                Ok(AttestedClaims {
+                    age,
+                    country_code,
+                    is_human: is_human_val != 0,
+                })
+            }
+            ClaimLayout::RarimoQuery => {
+                if pub_signals.len() < 6 {
+                    return Err(IdentityError::InsufficientPublicSignals);
+                }
+                if current_date_ymd == 0 {
+                    return Err(IdentityError::PolicyViolation);
+                }
+                let birth_fr = pub_signals
+                    .get(1)
+                    .ok_or(IdentityError::InsufficientPublicSignals)?;
+                let nationality_fr = pub_signals
+                    .get(5)
+                    .ok_or(IdentityError::InsufficientPublicSignals)?;
+                let birth_yymmdd = Self::fr_to_u32(&birth_fr)?;
+                let country_code = Self::fr_to_u32(&nationality_fr)?;
+                let age = Self::age_from_birth_yymmdd(birth_yymmdd, current_date_ymd)?;
+                Ok(AttestedClaims {
+                    age,
+                    country_code,
+                    is_human: true,
+                })
+            }
         }
-        let age_fr = pub_signals
-            .get(0)
-            .ok_or(IdentityError::InsufficientPublicSignals)?;
-        let country_fr = pub_signals
-            .get(1)
-            .ok_or(IdentityError::InsufficientPublicSignals)?;
-        let is_human_fr = pub_signals
-            .get(2)
-            .ok_or(IdentityError::InsufficientPublicSignals)?;
-        let age = Self::fr_to_u32(&age_fr)?;
-        let country_code = Self::fr_to_u32(&country_fr)?;
-        let is_human_val = Self::fr_to_u32(&is_human_fr)?;
-        Ok(AttestedClaims {
-            age,
-            country_code,
-            is_human: is_human_val != 0,
-        })
+    }
+
+    /// Age in years from passport-style YYMMDD and current YYMMDD (UTC).
+    fn age_from_birth_yymmdd(birth_yymmdd: u32, current_yymmdd: u32) -> Result<u32, IdentityError> {
+        if birth_yymmdd == 0 || current_yymmdd == 0 {
+            return Err(IdentityError::PolicyViolation);
+        }
+        let birth_yy = birth_yymmdd / 10_000;
+        let birth_mm = (birth_yymmdd / 100) % 100;
+        let birth_dd = birth_yymmdd % 100;
+        let cur_yy = current_yymmdd / 10_000;
+        let cur_mm = (current_yymmdd / 100) % 100;
+        let cur_dd = current_yymmdd % 100;
+
+        // Passport YY: 00–50 → 2000–2050; 51–99 → 1951–1999 (ICAO-style pivot).
+        let birth_full_year = if birth_yy <= 50 {
+            2000 + birth_yy
+        } else {
+            1900 + birth_yy
+        };
+        let current_full_year = if cur_yy <= 50 {
+            2000 + cur_yy
+        } else {
+            1900 + cur_yy
+        };
+
+        let mut age = current_full_year.saturating_sub(birth_full_year);
+        if cur_mm < birth_mm || (cur_mm == birth_mm && cur_dd < birth_dd) {
+            age = age.saturating_sub(1);
+        }
+        Ok(age)
     }
 
     fn verify_claims_match(
@@ -877,6 +934,19 @@ impl StellarIdentityCore {
             .instance()
             .get(&DataKey::Prover)
             .ok_or(IdentityError::NotInitialized)
+    }
+}
+
+#[cfg(test)]
+mod claim_layout_tests {
+    use super::StellarIdentityCore;
+
+    #[test]
+    fn age_from_birth_yymmdd_matches_adapter_rules() {
+        assert_eq!(
+            StellarIdentityCore::age_from_birth_yymmdd(950_101, 260_515).unwrap(),
+            31
+        );
     }
 }
 

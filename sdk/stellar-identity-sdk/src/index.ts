@@ -6,6 +6,8 @@ export type VerificationSource =
   | { kind: "OnchainGroth16" }
   | { kind: "AttestedProver"; attestationHash: Hex };
 
+export type ClaimLayout = "Standard" | "RarimoQuery";
+
 export interface AppPolicy {
   owner: string;
   minAge: number;
@@ -14,6 +16,7 @@ export interface AppPolicy {
   excludedCountries: number[];
   expirationWindow: number;
   sanctionsEnabled: boolean;
+  claimLayout: ClaimLayout;
 }
 
 export interface AttestedClaims {
@@ -55,6 +58,8 @@ export interface VerificationPayload {
   proof: ProofInput;
   /** Hex-encoded Bn254Fr scalars (Soroban field encoding). */
   publicSignals: string[];
+  /** YYMMDD for RarimoQuery claim layout; use 0 for Standard. */
+  currentDateYmd?: number;
   claims: AttestedClaims;
 }
 
@@ -167,6 +172,7 @@ export class StellarIdentityClient {
       payload.vk,
       payload.proof,
       payload.publicSignals,
+      payload.currentDateYmd ?? 0,
       payload.claims,
     ]);
   }

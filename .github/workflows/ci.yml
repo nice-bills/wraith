@@ -1,3 +1,4 @@
+# Local equivalent: make ci  (scripts/ci-local.sh)
 name: CI
 
 on:

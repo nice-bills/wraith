@@ -51,6 +51,12 @@ cd /home/bills/code/wraith
 cargo test
 ```
 
+Before pushing, run the same checks as GitHub Actions:
+
+```bash
+make ci
+```
+
 Build the contract WASM:
 
 ```bash
@@ -180,5 +186,6 @@ Revoking an app removes its policy and VK hash, but existing verification record
 
 For production launch:
 - Complete external security audit
-- Cost benchmarking on Futurenet
+- Cost benchmarking on Futurenet (`make benchmark-futurenet`)
+- ZK roadmap (circuits, passport, sanctions, ceremony): `docs/PRODUCTION_ZK_ROADMAP.md`
 - Design context: see `docs/ARCHITECTURE_NOTES.md`

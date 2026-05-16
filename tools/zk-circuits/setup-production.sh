@@ -41,11 +41,15 @@ fi
 # Setup circomlib submodule if needed
 if [ ! -d "$RARIMO_DIR/circomlib" ]; then
     echo ""
-    echo "Initializing circomlib submodule..."
+    echo "Initializing rarimo submodules..."
     cd "$RARIMO_DIR"
-    git submodule update --init --recursive circomlib
+    git submodule update --init --recursive || true
     cd "$SCRIPT_DIR"
-    echo "✓ circomlib initialized"
+    if [ -d "$RARIMO_DIR/circomlib" ]; then
+        echo "✓ circomlib initialized"
+    else
+        echo "⚠ circomlib missing — run: cd rarimo && git submodule update --init --recursive"
+    fi
 else
     echo "✓ circomlib present"
 fi

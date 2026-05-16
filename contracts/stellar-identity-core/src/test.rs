@@ -20,8 +20,8 @@ use soroban_sdk::{
 };
 
 use crate::{
-    AppPolicy, AppRegistered, AppRevoked, AppUpdated, AttestedClaims, IdentityError, Initialized,
-    Proof, ProverUpdated, StellarIdentityCore, VerificationKey, VerificationRecorded,
+    AppPolicy, AppRegistered, AppRevoked, AppUpdated, AttestedClaims, ClaimLayout, IdentityError,
+    Initialized, Proof, ProverUpdated, StellarIdentityCore, VerificationKey, VerificationRecorded,
     VerificationSource,
 };
 
@@ -47,20 +47,8 @@ fn ic_points(env: &Env, count: u32) -> Vec<Bn254G1Affine> {
         1 => Vec::from_array(env, [z.clone()]),
         2 => Vec::from_array(env, [z.clone(), z.clone()]),
         3 => Vec::from_array(env, [z.clone(), z.clone(), z.clone()]),
-        4 => Vec::from_array(
-            env,
-            [z.clone(), z.clone(), z.clone(), z.clone()],
-        ),
-        5 => Vec::from_array(
-            env,
-            [
-                z.clone(),
-                z.clone(),
-                z.clone(),
-                z.clone(),
-                z.clone(),
-            ],
-        ),
+        4 => Vec::from_array(env, [z.clone(), z.clone(), z.clone(), z.clone()]),
+        5 => Vec::from_array(env, [z.clone(), z.clone(), z.clone(), z.clone(), z.clone()]),
         _ => panic!("unsupported ic count in test helper"),
     }
 }
@@ -81,7 +69,8 @@ fn attested_hashes(
     nullifier: &BytesN<32>,
     claim_values: &AttestedClaims,
 ) -> (BytesN<32>, BytesN<32>) {
-    let public_inputs_hash = StellarIdentityCore::hash_attested_claims(env.clone(), claim_values.clone());
+    let public_inputs_hash =
+        StellarIdentityCore::hash_attested_claims(env.clone(), claim_values.clone());
     let attestation_hash = StellarIdentityCore::hash_attestation(
         env.clone(),
         prover.clone(),
@@ -148,6 +137,7 @@ fn register_app_emits_event() {
         excluded_countries: Vec::new(&env),
         expiration_window: 0,
         sanctions_enabled: false,
+        claim_layout: ClaimLayout::Standard,
     };
 
     env.as_contract(&contract_id, || {
@@ -191,6 +181,7 @@ fn app_lifecycle_emits_events() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -220,6 +211,7 @@ fn app_lifecycle_emits_events() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -274,6 +266,7 @@ fn record_attested_result_emits_event_and_blocks_replay() {
                 excluded_countries: Vec::from_array(&env, [840]),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -384,6 +377,7 @@ fn rejects_malformed_vk_before_pairing() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -423,6 +417,7 @@ fn rejects_malformed_vk_before_pairing() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
+            0,
             claims(33, 840, true),
         )
     });
@@ -453,6 +448,7 @@ fn not_initialized_blocks_stateful_operations() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -479,6 +475,7 @@ fn not_initialized_blocks_stateful_operations() {
                 c: zero_g1(&env),
             },
             Vec::from_array(&env, [Bn254Fr::from_u256(U256::from_u32(&env, 25))]),
+            0,
             claims(25, 840, true),
         )
     });
@@ -515,6 +512,7 @@ fn not_initialized_blocks_stateful_operations() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -548,6 +546,7 @@ fn unauthorized_prover_blocks_attested_path() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -594,6 +593,7 @@ fn app_owner_mismatch_blocks_policy_update() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -612,6 +612,7 @@ fn app_owner_mismatch_blocks_policy_update() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -644,6 +645,7 @@ fn blocks_policy_violations_and_duplicate_subjects() {
                 excluded_countries: Vec::from_array(&env, [566]),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -652,8 +654,14 @@ fn blocks_policy_violations_and_duplicate_subjects() {
 
     let young_claims = claims(20, 840, true);
     let young_nullifier = bytes32(&env, 8);
-    let (young_pub_hash, young_att_hash) =
-        attested_hashes(&env, &prover, &app_id, &subject, &young_nullifier, &young_claims);
+    let (young_pub_hash, young_att_hash) = attested_hashes(
+        &env,
+        &prover,
+        &app_id,
+        &subject,
+        &young_nullifier,
+        &young_claims,
+    );
     let too_young = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -670,8 +678,14 @@ fn blocks_policy_violations_and_duplicate_subjects() {
 
     let blocked_claims = claims(30, 566, true);
     let blocked_nullifier = bytes32(&env, 10);
-    let (blocked_pub_hash, blocked_att_hash) =
-        attested_hashes(&env, &prover, &app_id, &subject, &blocked_nullifier, &blocked_claims);
+    let (blocked_pub_hash, blocked_att_hash) = attested_hashes(
+        &env,
+        &prover,
+        &app_id,
+        &subject,
+        &blocked_nullifier,
+        &blocked_claims,
+    );
     let blocked_country = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -688,8 +702,14 @@ fn blocks_policy_violations_and_duplicate_subjects() {
 
     let valid_claims = claims(30, 840, true);
     let valid_nullifier = bytes32(&env, 11);
-    let (valid_pub_hash, valid_att_hash) =
-        attested_hashes(&env, &prover, &app_id, &subject, &valid_nullifier, &valid_claims);
+    let (valid_pub_hash, valid_att_hash) = attested_hashes(
+        &env,
+        &prover,
+        &app_id,
+        &subject,
+        &valid_nullifier,
+        &valid_claims,
+    );
     env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -706,8 +726,14 @@ fn blocks_policy_violations_and_duplicate_subjects() {
 
     let dup_claims = claims(30, 840, true);
     let dup_nullifier = bytes32(&env, 12);
-    let (dup_pub_hash, dup_att_hash) =
-        attested_hashes(&env, &prover, &app_id, &subject, &dup_nullifier, &dup_claims);
+    let (dup_pub_hash, dup_att_hash) = attested_hashes(
+        &env,
+        &prover,
+        &app_id,
+        &subject,
+        &dup_nullifier,
+        &dup_claims,
+    );
     let duplicate_subject = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -724,14 +750,6 @@ fn blocks_policy_violations_and_duplicate_subjects() {
         duplicate_subject,
         Err(IdentityError::SubjectAlreadyVerified)
     );
-}
-
-fn garbage_claims() -> AttestedClaims {
-    AttestedClaims {
-        age: 99,
-        country_code: 111,
-        is_human: true,
-    }
 }
 
 #[test]
@@ -759,6 +777,7 @@ fn verify_and_record_requires_vk_hash() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -798,6 +817,7 @@ fn verify_and_record_requires_vk_hash() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
+            0,
             claims(25, 840, true),
         )
     });
@@ -831,6 +851,7 @@ fn revoke_app_preserves_records_and_nullifiers() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -891,6 +912,7 @@ fn revoke_app_preserves_records_and_nullifiers() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -899,8 +921,14 @@ fn revoke_app_preserves_records_and_nullifiers() {
 
     let reverify_claims = claims(30, 840, true);
     let reverify_nullifier = bytes32(&env, 88);
-    let (reverify_pub, reverify_att) =
-        attested_hashes(&env, &prover, &app_id, &subject, &reverify_nullifier, &reverify_claims);
+    let (reverify_pub, reverify_att) = attested_hashes(
+        &env,
+        &prover,
+        &app_id,
+        &subject,
+        &reverify_nullifier,
+        &reverify_claims,
+    );
     let blocked = env.as_contract(&contract_id, || {
         StellarIdentityCore::record_attested_result(
             env.clone(),
@@ -943,6 +971,7 @@ fn expired_records_can_refresh_with_fresh_nullifier() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 1,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -1095,6 +1124,7 @@ fn revoke_clears_approval_state() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -1137,6 +1167,7 @@ fn verify_and_record_rejects_vk_mismatch() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             Some(bytes32(&env, 99)),
         )
@@ -1176,6 +1207,7 @@ fn verify_and_record_rejects_vk_mismatch() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
+            0,
             claims(25, 840, true),
         )
     });
@@ -1207,6 +1239,7 @@ fn verify_and_record_rejects_claim_mismatch() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             Some(bytes32(&env, 42)),
         )
@@ -1246,6 +1279,7 @@ fn verify_and_record_rejects_claim_mismatch() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
+            0,
             claims(99, 840, true),
         )
     });
@@ -1276,6 +1310,7 @@ fn app_approval_mode_blocks_registration() {
         excluded_countries: Vec::new(&env),
         expiration_window: 0,
         sanctions_enabled: false,
+        claim_layout: ClaimLayout::Standard,
     };
 
     let unregistered = env.as_contract(&contract_id, || {
@@ -1320,6 +1355,7 @@ fn sanctions_stub_rejects_zero_root() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: true,
+                claim_layout: ClaimLayout::Standard,
             },
             Some(bytes32(&env, 1)),
         )
@@ -1352,6 +1388,7 @@ fn sanctions_failsafe_blocks_with_nonzero_root() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             Some(bytes32(&env, 99)),
         )
@@ -1370,6 +1407,7 @@ fn sanctions_failsafe_blocks_with_nonzero_root() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: true,
+                claim_layout: ClaimLayout::Standard,
             },
             None,
         )
@@ -1402,6 +1440,7 @@ fn with_sanctions_disabled_vk_mismatch_is_reached() {
                 excluded_countries: Vec::new(&env),
                 expiration_window: 0,
                 sanctions_enabled: false,
+                claim_layout: ClaimLayout::Standard,
             },
             Some(bytes32(&env, 99)),
         )
@@ -1441,8 +1480,41 @@ fn with_sanctions_disabled_vk_mismatch_is_reached() {
             vk.clone(),
             proof.clone(),
             pub_signals.clone(),
+            0,
             claims(25, 840, true),
         )
     });
     assert_eq!(result, Err(IdentityError::VkMismatch));
+}
+
+#[test]
+fn rarimo_query_layout_derives_age_and_country() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    emit_init(&env, &contract_id, &admin, &prover);
+
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            Bn254Fr::from_u256(U256::from_u32(&env, 1)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 950_101)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 300_101)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 0)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 0)),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+        ],
+    );
+
+    let derived = StellarIdentityCore::derive_claims_from_signals(
+        &pub_signals,
+        &ClaimLayout::RarimoQuery,
+        260_515,
+    )
+    .unwrap();
+    assert_eq!(derived.age, 31);
+    assert_eq!(derived.country_code, 840);
+    assert!(derived.is_human);
 }

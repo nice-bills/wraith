@@ -57,7 +57,7 @@ cargo run -q -p proof-adapter -- \
 VK_HASH=$(node "$ROOT_DIR/scripts/compute-vk-hash.mjs" "$PAYLOAD")
 PUB_SIGNALS=$(jq -c '.public_signals_decimals' "$PAYLOAD")
 CLAIMS=$(jq -c '.claims | {age, country_code, is_human}' "$PAYLOAD")
-POLICY="{\"owner\":\"$SUBJECT\",\"min_age\":18,\"require_humanity\":false,\"sanctions_root\":\"$ZERO32\",\"excluded_countries\":[],\"expiration_window\":0,\"sanctions_enabled\":false}"
+POLICY="{\"owner\":\"$SUBJECT\",\"min_age\":18,\"require_humanity\":false,\"sanctions_root\":\"$ZERO32\",\"excluded_countries\":[],\"expiration_window\":0,\"sanctions_enabled\":false,\"claim_layout\":\"Standard\"}"
 
 node -e "
 const fs=require('fs'); const p=JSON.parse(fs.readFileSync('$PAYLOAD'));
@@ -80,6 +80,7 @@ invoke --send=yes -- verify_and_record \
   --proof-file-path /tmp/wraith-groth16-proof.json \
   --vk-file-path /tmp/wraith-groth16-vk.json \
   --pub_signals "$PUB_SIGNALS" \
+  --current_date_ymd 0 \
   --claims "$CLAIMS"
 
 echo "5. is_verified..."

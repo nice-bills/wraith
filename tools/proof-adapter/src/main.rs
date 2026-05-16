@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf, str::FromStr};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
@@ -100,14 +100,11 @@ fn main() -> Result<()> {
     let public_signals_decimals = parse_public_signals(&public_signals)?;
 
     let (output_public_signals, claims) = if cli.rarimo_mode {
-        let current_date = cli
-            .current_date
-            .as_deref()
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "--current-date (YYMMDD, UTC) is required in --rarimo-mode for production use"
-                )
-            })?;
+        let current_date = cli.current_date.as_deref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "--current-date (YYMMDD, UTC) is required in --rarimo-mode for production use"
+            )
+        })?;
 
         let rarimo_signals = RarimoPublicSignals::from_query_output(&public_signals_decimals)
             .context("failed to parse rarimo signals")?;
@@ -122,7 +119,8 @@ fn main() -> Result<()> {
             is_human: wraith_claims.is_human,
         };
 
-        (wraith_claims.to_public_signals(), Some(claims_payload))
+        // Keep full Rarimo public signal vector for Groth16 verification on-chain.
+        (public_signals_decimals.clone(), Some(claims_payload))
     } else {
         let claims = derive_claims(
             &public_signals_decimals,
@@ -353,7 +351,7 @@ fn read_signal<'a>(signals: &'a [String], idx: usize, name: &str) -> Result<&'a 
 
 #[cfg(test)]
 mod tests {
-    use super::{ClaimsPayload, decimal_to_be32, derive_claims, encode_fp2_pair, validate_output};
+    use super::{decimal_to_be32, derive_claims, encode_fp2_pair, validate_output, ClaimsPayload};
     use serde_json::json;
 
     #[test]

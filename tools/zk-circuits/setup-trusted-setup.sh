@@ -71,8 +71,8 @@ cd "$RARIMO_DIR"
 
 # Check if circomlib is available
 if [ ! -d "circomlib" ]; then
-    echo "Initializing circomlib submodule..."
-    git submodule update --init --recursive circomlib
+    echo "Initializing rarimo submodules..."
+    git submodule update --init --recursive || true
 fi
 
 # Build circuit (this may take a while)

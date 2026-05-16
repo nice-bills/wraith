@@ -151,6 +151,18 @@
                 "map": [
                   {
                     "key": {
+                      "symbol": "claim_layout"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Standard"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "excluded_countries"
                     },
                     "val": {
