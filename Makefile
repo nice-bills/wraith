@@ -40,6 +40,9 @@ setup-passport:
 setup-rarimo-phase2:
 	./scripts/setup-rarimo-phase2.sh
 
+setup-rarimo-phase2-td1:
+	./scripts/setup-rarimo-phase2-td1.sh
+
 passport-layout:
 	./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json
 

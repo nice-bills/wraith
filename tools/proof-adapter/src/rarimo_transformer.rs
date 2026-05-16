@@ -9,6 +9,8 @@ pub struct RarimoPublicSignals {
 }
 
 impl RarimoPublicSignals {
+    /// Rarimo query: birthDate @ [1]. Country @ [5] is nationality (TD3) or citizenship (TD1);
+    /// contract `RarimoQuery` also reads [5] for country_code.
     pub fn from_query_output(signals: &[String]) -> Result<Self> {
         if signals.len() < 6 {
             anyhow::bail!(

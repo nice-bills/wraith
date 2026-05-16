@@ -45,10 +45,11 @@ echo ""
 echo "=== Register circuit inputs (process_passport) ==="
 "$ROOT_DIR/scripts/passport-pipeline.sh" "$PASSPORT_JSON"
 
-[[ -f "${RARIMO_QUERY_ZKEY:-$ROOT_DIR/tools/zk-circuits/build/rarimo-query/queryIdentity_final.zkey}" ]] || {
-  echo "error: run ./scripts/setup-rarimo-phase2.sh first"
+if [[ ! -f "${RARIMO_QUERY_ZKEY:-$ROOT_DIR/tools/zk-circuits/build/rarimo-query/queryIdentity_final.zkey}" ]] \
+  && [[ ! -f "$ROOT_DIR/tools/zk-circuits/build/rarimo-query-td1/queryIdentity_final.zkey" ]]; then
+  echo "error: run make setup-rarimo-phase2 (passport) and/or make setup-rarimo-phase2-td1 (national ID)"
   exit 1
-}
+fi
 
 echo ""
 echo "=== Query prove (Phase 2 — full Groth16 + identity SMT) ==="

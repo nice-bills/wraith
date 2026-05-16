@@ -6,25 +6,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RARIMO="$ROOT_DIR/tools/zk-circuits/rarimo"
 PASSPORT_JSON="${1:?passport.json}"
 OUT_DIR="${2:-$ROOT_DIR/passport-data/runs/full-$(date +%Y%m%d-%H%M%S)}"
-BUILD="${RARIMO_QUERY_BUILD:-$ROOT_DIR/tools/zk-circuits/build/rarimo-query}"
-QUERY_ZKEY="${RARIMO_QUERY_ZKEY:-$BUILD/queryIdentity_final.zkey}"
-QUERY_WASM="${RARIMO_QUERY_WASM:-$BUILD/queryIdentity_js/queryIdentity.wasm}"
 CURRENT_DATE="${CURRENT_DATE_YMD:-$(date -u +%y%m%d)}"
 GENERATED="$RARIMO/test/inputs/generated"
-
-mkdir -p "$OUT_DIR"
-
-# shellcheck source=/dev/null
-[[ -f "$BUILD/phase2.env" ]] && source "$BUILD/phase2.env"
-
-echo "=== Rarimo full prove (Phase 2) ==="
-echo "Passport: $PASSPORT_JSON"
-echo "Out:      $OUT_DIR"
-
-[[ -f "$QUERY_ZKEY" && -f "$QUERY_WASM" ]] || {
-  echo "error: query zkey/wasm missing. Run: ./scripts/setup-rarimo-phase2.sh"
-  exit 1
-}
 
 if ! ls "$GENERATED"/*.json >/dev/null 2>&1; then
   echo "error: no register inputs — run passport-pipeline.sh first"
@@ -32,6 +15,43 @@ if ! ls "$GENERATED"/*.json >/dev/null 2>&1; then
 fi
 
 REGISTER_INPUT="$(ls -t "$GENERATED"/*.json | head -1)"
+CIRCUIT_NAME="$(basename "$REGISTER_INPUT" .json)"
+DOC_TYPE="$(node "$ROOT_DIR/scripts/lib/detect-rarimo-doc-type.mjs" "$CIRCUIT_NAME")"
+
+if [[ "$DOC_TYPE" == "td1" ]]; then
+  BUILD="${RARIMO_QUERY_BUILD:-$ROOT_DIR/tools/zk-circuits/build/rarimo-query-td1}"
+  QUERY_ZKEY="${RARIMO_QUERY_ZKEY:-$BUILD/queryIdentity_final.zkey}"
+  QUERY_WASM="${RARIMO_QUERY_WASM:-$BUILD/queryIdentityTD1_js/queryIdentity.wasm}"
+else
+  BUILD="${RARIMO_QUERY_BUILD:-$ROOT_DIR/tools/zk-circuits/build/rarimo-query}"
+  QUERY_ZKEY="${RARIMO_QUERY_ZKEY:-$BUILD/queryIdentity_final.zkey}"
+  QUERY_WASM="${RARIMO_QUERY_WASM:-$BUILD/queryIdentity_js/queryIdentity.wasm}"
+fi
+export RARIMO_DOC_TYPE="$DOC_TYPE"
+mkdir -p "$OUT_DIR"
+
+if [[ "$DOC_TYPE" == "td1" && -f "$BUILD/phase2-td1.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$BUILD/phase2-td1.env"
+elif [[ -f "$ROOT_DIR/tools/zk-circuits/build/rarimo-query/phase2.env" ]]; then
+  # shellcheck source=/dev/null
+  source "$ROOT_DIR/tools/zk-circuits/build/rarimo-query/phase2.env"
+fi
+
+echo "=== Rarimo full prove (Phase 2) ==="
+echo "Passport: $PASSPORT_JSON"
+echo "Out:      $OUT_DIR"
+
+[[ -f "$QUERY_ZKEY" && -f "$QUERY_WASM" ]] || {
+  if [[ "$DOC_TYPE" == "td1" ]]; then
+    echo "error: TD1 query zkey missing. Run: make setup-rarimo-phase2-td1"
+  else
+    echo "error: TD3 query zkey missing. Run: make setup-rarimo-phase2"
+  fi
+  exit 1
+}
+
+echo "Document:    $DOC_TYPE (from register circuit $CIRCUIT_NAME)"
 echo "Register input: $REGISTER_INPUT"
 cp "$REGISTER_INPUT" "$OUT_DIR/register-input.json"
 

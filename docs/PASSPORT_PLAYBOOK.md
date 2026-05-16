@@ -9,7 +9,8 @@ Two paths: **A (layout)** works today on Futurenet; **B (full)** needs an NFC sc
 | **Command** | `passport-ready-layout.sh` | `passport-ready-full.sh` |
 | **Fixture** | `fixtures/passport.layout.json` | `fixtures/passport.template.json` (after scan) |
 
-**Scan apps:** `docs/PASSPORT_SCAN.md`
+**Scan apps:** `docs/PASSPORT_SCAN.md`  
+**Document types (ID vs passport vs no chip):** `docs/IDENTITY_DOCUMENTS.md`
 
 ---
 

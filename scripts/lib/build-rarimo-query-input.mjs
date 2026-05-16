@@ -49,6 +49,8 @@ const passportHash = Array.isArray(pub) ? pub[1] : pub.passportHash;
 const pkPassportHash =
   dg15Hash && dg15Hash !== "0" && dg15Hash !== 0 ? String(dg15Hash) : String(passportHash);
 
+// TD1: country often in citizenship (public [5]); TD3: nationality at [5]. Witness uses dg1 layout only.
+
 const skIdentity = BigInt(reg.skIdentity);
 const dg1Bits = reg.dg1.slice(0, dg1Len);
 
