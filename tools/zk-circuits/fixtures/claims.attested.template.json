@@ -1,0 +1,6 @@
+{
+  "_comment": "After KYC vendor approves user — map webhook to these fields. Never commit real user data.",
+  "age": 25,
+  "country_code": 840,
+  "is_human": true
+}

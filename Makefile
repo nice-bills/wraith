@@ -1,4 +1,4 @@
-.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo setup-zk setup-passport passport-ready benchmark-futurenet
+.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo setup-zk setup-passport attested-ready passport-ready benchmark-futurenet
 
 test:
 	cargo test
@@ -46,11 +46,12 @@ setup-rarimo-phase2-td1:
 passport-layout:
 	./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json
 
+attested-ready:
+	./scripts/attested-ready.sh
+
 passport-ready:
-	@echo "Path A (layout): ./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json"
-	@echo "Path B (full):   ./scripts/passport-ready-full.sh passport-data/my-passport.json"
-	@echo "Scan guide:      docs/PASSPORT_SCAN.md"
-	@echo "First run:       make setup-passport"
+	@echo "No NFC:  ./scripts/attested-ready.sh  (docs/KYC_ATTESTED.md)"
+	@echo "NFC ZK:  ./scripts/passport-ready-layout.sh (docs/PASSPORT_PLAYBOOK.md)"
 
 benchmark-futurenet:
 	./scripts/benchmark-futurenet.sh

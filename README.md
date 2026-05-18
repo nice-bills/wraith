@@ -57,21 +57,28 @@ Before pushing, run the same checks as GitHub Actions:
 make ci
 ```
 
-### Passport
+### Identity verification
+
+**No NFC on your ID?** → KYC attested path (already in the contract):
 
 ```bash
-make setup-passport   # once: rarimo + layout zkey
-make passport-layout  # Path A demo (no NFC scan)
+export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
+./scripts/attested-ready.sh   # or: make e2e-attested
 ```
 
-| Path | When | Command |
-|------|------|---------|
-| **A — Layout** | Demo / Futurenet RarimoQuery | `./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json` |
-| **B — Full** | After NFC scan + Phase 2 setup | `make setup-rarimo-phase2` then `passport-ready-full.sh` |
+Guide: `docs/KYC_ATTESTED.md`
 
-Scan apps (Android/iOS): `docs/PASSPORT_SCAN.md` · Playbook: `docs/PASSPORT_PLAYBOOK.md`
+**NFC passport or ID card?** → Rarimo ZK path:
 
-Phase 2 proves **queryIdentity** (23 public signals) with dev identity SMT — not the layout stub.
+```bash
+make setup-passport
+make passport-layout   # quick demo
+```
+
+| Path | Document | Guide |
+|------|----------|--------|
+| **KYC attested** | No chip (national ID, license photo) | `docs/KYC_ATTESTED.md` |
+| **Rarimo ZK** | NFC passport / NFC ID | `docs/PASSPORT_PLAYBOOK.md` |
 
 Build the contract WASM:
 

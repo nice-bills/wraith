@@ -1,17 +1,22 @@
 # Identity documents — what Wraith supports
 
-## Chip required (ICAO eMRTD)
+## Pick one path
 
-Wraith’s Rarimo path verifies **NFC chip data** (ICAO 9303 LDS): `sod`, `dg1`, often `dg15`. The chip signature proves the document is authentic.
+| Your document | Path | Guide |
+|---------------|------|--------|
+| Passport or ID **with NFC chip** | Rarimo ZK | `docs/PASSPORT_PLAYBOOK.md` |
+| ID **without NFC** (your case) | **KYC attested** | **`docs/KYC_ATTESTED.md`** |
+| Paper driver’s license (no chip) | **KYC attested** | **`docs/KYC_ATTESTED.md`** |
 
-| Document | Rarimo doc type | Wraith path |
-|----------|-----------------|-------------|
-| Biometric **passport** (booklet) | TD3 (`…_3_…` in circuit name) | `queryIdentity` |
-| **National ID** / residence permit (card, NFC) | TD1 (`…_1_…`) | `queryIdentityTD1` |
-| **Driver’s license** (paper/plastic, no chip) | — | **Not supported** |
-| **Utility bill / selfie of ID** | — | **Not supported** |
+## Chip path (ICAO eMRTD) — Rarimo only
 
-Same scan apps usually work for **passport and chip ID cards** (zkcreds-passport-dumper, etc.). Export still goes to `passport-data/` — never commit it.
+Needs NFC. Verifies chip signatures (`sod`, `dg1`, …).
+
+| Document | Rarimo | Wraith |
+|----------|--------|--------|
+| NFC passport | TD3 | `make setup-rarimo-phase2` |
+| NFC national ID card | TD1 | `make setup-rarimo-phase2-td1` |
+| **No NFC** | — | Use **KYC attested** instead |
 
 ## Self Protocol (Celo) — different stack
 
@@ -28,11 +33,17 @@ Same scan apps usually work for **passport and chip ID cards** (zkcreds-passport
 
 Possible **later**: verify Self attestations on Stellar (separate feature). Not a substitute for Rarimo TD1 work.
 
-## What to scan with your national ID
+## National ID without NFC
 
-1. Confirm the card has **NFC** (contactless symbol).
-2. Scan with Android [zkcreds-passport-dumper](https://github.com/rozbb/zkcreds-passport-dumper) (same MRZ unlock flow as passport).
-3. `node scripts/normalize-passport-json.mjs dump.json passport-data/my-id.json`
-4. `make setup-rarimo-phase2-td1` then `./scripts/passport-ready-full.sh passport-data/my-id.json`
+Do **not** use passport/Rarimo scripts. Use the attested path:
 
-`process_passport.js` picks TD1 vs TD3 from DG1 size; Wraith selects the matching query zkey and claim layout.
+```bash
+export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
+./scripts/attested-ready.sh tools/zk-circuits/fixtures/claims.attested.template.json
+```
+
+See **`docs/KYC_ATTESTED.md`** for plugging in Persona/Sumsub later.
+
+## National ID with NFC (chip card)
+
+Same flow as passport, TD1 circuits: `make setup-rarimo-phase2-td1`, then `passport-ready-full.sh` after scan (`docs/PASSPORT_SCAN.md`).
