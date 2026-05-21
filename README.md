@@ -75,10 +75,20 @@ make setup-passport
 make passport-layout   # quick demo
 ```
 
-| Path | Document | Guide |
-|------|----------|--------|
-| **KYC attested** | No chip (national ID, license photo) | `docs/KYC_ATTESTED.md` |
-| **Rarimo ZK** | NFC passport / NFC ID | `docs/PASSPORT_PLAYBOOK.md` |
+| Path | Document | Guide | Make target |
+|------|----------|--------|-------------|
+| **KYC attested** | No chip (national ID, license photo) | `docs/KYC_ATTESTED.md` | `make attested-ready` |
+| **Rarimo layout** | NFC demo / signal layout | `docs/PASSPORT_PLAYBOOK.md` | `make passport-layout` |
+| **Rarimo Phase 2** | NFC passport / ID (full crypto) | `docs/PASSPORT_PLAYBOOK.md` | `make setup-rarimo-phase2` |
+
+Futurenet E2E (requires `SOROBAN_SOURCE_ACCOUNT`):
+
+```bash
+make e2e-attested      # KYC attested path
+make e2e-groth16       # Standard Groth16 (e2e_claims)
+make e2e-rarimo        # Rarimo layout stub on Futurenet
+make e2e-rarimo-query  # Full Phase 2 (needs scanned passport JSON)
+```
 
 Build the contract WASM:
 
@@ -161,7 +171,7 @@ CI (`make ci`) never deploys.
 - `set_approval_mode(required)` — admin only
 - `get_admin()`
 - `get_prover()`
-- `verify_and_record(app_id, subject, nullifier, public_inputs_hash, vk, proof, pub_signals, claims)` — requires VK hash to be registered; claims must match derived from pub_signals
+- `verify_and_record(app_id, subject, nullifier, public_inputs_hash, vk, proof, pub_signals, current_date_ymd, claims)` — requires VK hash; claims derived from pub_signals per policy `claim_layout` (`Standard` or `RarimoQuery`)
 - `record_attested_result(prover, app_id, subject, nullifier, public_inputs_hash, attestation_hash, claims)` — prover auth required
 - `is_verified(app_id, subject)` — enforces expiration if configured
 - `get_record(app_id, subject)` — returns None if expired
@@ -172,7 +182,7 @@ CI (`make ci`) never deploys.
 ### On-chain Groth16 (`verify_and_record`)
 
 - VK hash is **mandatory** — unregistered VKs are rejected
-- Claims are **cryptographically bound** — derived from `pub_signals[0..2]` and matched to supplied claims
+- Claims are **cryptographically bound** — derived from `pub_signals` per `claim_layout` and matched to supplied claims
 - `public_inputs_hash` must match SHA-256 of serialized public signals
 - Subject must authorize; nullifiers are **app-scoped**
 

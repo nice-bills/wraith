@@ -43,5 +43,5 @@ console.log('Circuit name:', name);
 
 echo ""
 echo "Generated: $RARIMO/test/inputs/generated/"
-echo "Next: ./scripts/passport-prove-layout.sh $PASSPORT_JSON"
-echo "  or:  ./scripts/passport-ready.sh $PASSPORT_JSON [--submit]"
+echo "Next (full Phase 2): ./scripts/passport-ready-full.sh $PASSPORT_JSON"
+echo "  demo only:         ./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json"

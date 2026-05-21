@@ -106,3 +106,37 @@ fn cli_rarimo_mode_keeps_full_public_vector_and_derives_claims() {
 
     let _ = fs::remove_file(output_path);
 }
+
+#[test]
+fn cli_rarimo_mode_layout_stub_derives_claims() {
+    let output_path = unique_output_path();
+
+    let status = Command::new(env!("CARGO_BIN_EXE_proof-adapter"))
+        .arg("--proof")
+        .arg(fixture("proof.json"))
+        .arg("--vk")
+        .arg(fixture("rarimo_layout_vk.json"))
+        .arg("--public")
+        .arg(fixture("rarimo_layout_public.json"))
+        .arg("--out")
+        .arg(&output_path)
+        .arg("--rarimo-mode")
+        .arg("--current-date")
+        .arg("250101")
+        .status()
+        .expect("failed to run proof-adapter binary");
+    assert!(status.success());
+
+    let raw = fs::read_to_string(&output_path).expect("failed to read output");
+    let output: Value = serde_json::from_str(&raw).expect("invalid output json");
+
+    assert_eq!(
+        output["public_signals_decimals"].as_array().unwrap().len(),
+        6
+    );
+    assert_eq!(output["claims"]["country_code"], 840);
+    let age = output["claims"]["age"].as_u64().unwrap();
+    assert!((29..=31).contains(&age));
+
+    let _ = fs::remove_file(output_path);
+}

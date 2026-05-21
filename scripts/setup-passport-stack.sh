@@ -27,8 +27,9 @@ need stellar-cli "https://developers.stellar.org/docs/tools/cli"
 mkdir -p "$ZK/build" "$ROOT_DIR/passport-data"
 if [[ ! -f "$PTAU" ]]; then
   echo "Downloading dev PTAU (powersOfTau10)..."
-  (cd "$ZK" && bash setup-trusted-setup.sh) || true
+  (cd "$ZK" && bash setup-trusted-setup.sh)
 fi
+[[ -f "$PTAU" ]] || { echo "error: PTAU missing at $PTAU"; exit 1; }
 
 echo "Pre-building layout circuit zkey (RarimoQuery pipeline smoke)..."
 mkdir -p "$BUILD_LAYOUT"

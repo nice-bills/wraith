@@ -836,26 +836,53 @@ impl StellarIdentityCore {
                 })
             }
             ClaimLayout::RarimoQuery => {
-                if pub_signals.len() < 6 {
-                    return Err(IdentityError::InsufficientPublicSignals);
-                }
                 if current_date_ymd == 0 {
                     return Err(IdentityError::PolicyViolation);
                 }
-                let birth_fr = pub_signals
-                    .get(1)
-                    .ok_or(IdentityError::InsufficientPublicSignals)?;
-                let nationality_fr = pub_signals
-                    .get(5)
-                    .ok_or(IdentityError::InsufficientPublicSignals)?;
-                let birth_yymmdd = Self::fr_to_u32(&birth_fr)?;
-                let country_code = Self::fr_to_u32(&nationality_fr)?;
-                let age = Self::age_from_birth_yymmdd(birth_yymmdd, current_date_ymd)?;
-                Ok(AttestedClaims {
-                    age,
-                    country_code,
-                    is_human: true,
-                })
+                // Phase 2 queryIdentity: 14 public inputs + 9 outputs (23 total).
+                // Layout stub: 6 public inputs (nullifier, birthDate, …, nationality).
+                if pub_signals.len() >= 23 {
+                    let birth_fr = pub_signals
+                        .get(15)
+                        .ok_or(IdentityError::InsufficientPublicSignals)?;
+                    let nationality_fr = pub_signals
+                        .get(19)
+                        .ok_or(IdentityError::InsufficientPublicSignals)?;
+                    let citizenship_fr = pub_signals
+                        .get(20)
+                        .ok_or(IdentityError::InsufficientPublicSignals)?;
+                    let birth_yymmdd = Self::fr_to_u32(&birth_fr)?;
+                    let nationality = Self::fr_to_u32(&nationality_fr)?;
+                    let citizenship = Self::fr_to_u32(&citizenship_fr)?;
+                    let country_code = if nationality != 0 {
+                        nationality
+                    } else {
+                        citizenship
+                    };
+                    let age = Self::age_from_birth_yymmdd(birth_yymmdd, current_date_ymd)?;
+                    Ok(AttestedClaims {
+                        age,
+                        country_code,
+                        is_human: true,
+                    })
+                } else if pub_signals.len() >= 6 {
+                    let birth_fr = pub_signals
+                        .get(1)
+                        .ok_or(IdentityError::InsufficientPublicSignals)?;
+                    let nationality_fr = pub_signals
+                        .get(5)
+                        .ok_or(IdentityError::InsufficientPublicSignals)?;
+                    let birth_yymmdd = Self::fr_to_u32(&birth_fr)?;
+                    let country_code = Self::fr_to_u32(&nationality_fr)?;
+                    let age = Self::age_from_birth_yymmdd(birth_yymmdd, current_date_ymd)?;
+                    Ok(AttestedClaims {
+                        age,
+                        country_code,
+                        is_human: true,
+                    })
+                } else {
+                    Err(IdentityError::InsufficientPublicSignals)
+                }
             }
         }
     }

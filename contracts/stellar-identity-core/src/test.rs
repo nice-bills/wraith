@@ -1518,3 +1518,101 @@ fn rarimo_query_layout_derives_age_and_country() {
     assert_eq!(derived.country_code, 840);
     assert!(derived.is_human);
 }
+
+#[test]
+fn rarimo_query_phase2_layout_derives_age_and_country() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    emit_init(&env, &contract_id, &admin, &prover);
+
+    let z = || Bn254Fr::from_u256(U256::from_u32(&env, 0));
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 950_101)),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            z(),
+            z(),
+            z(),
+        ],
+    );
+
+    let derived = StellarIdentityCore::derive_claims_from_signals(
+        &pub_signals,
+        &ClaimLayout::RarimoQuery,
+        260_515,
+    )
+    .unwrap();
+    assert_eq!(derived.age, 31);
+    assert_eq!(derived.country_code, 840);
+    assert!(derived.is_human);
+}
+
+#[test]
+fn rarimo_query_phase2_uses_citizenship_when_nationality_zero() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = create_contract(&env);
+    let admin = Address::generate(&env);
+    let prover = Address::generate(&env);
+    emit_init(&env, &contract_id, &admin, &prover);
+
+    let z = || Bn254Fr::from_u256(U256::from_u32(&env, 0));
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 950_101)),
+            z(),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 826)),
+            z(),
+            z(),
+        ],
+    );
+
+    let derived = StellarIdentityCore::derive_claims_from_signals(
+        &pub_signals,
+        &ClaimLayout::RarimoQuery,
+        260_515,
+    )
+    .unwrap();
+    assert_eq!(derived.country_code, 826);
+}

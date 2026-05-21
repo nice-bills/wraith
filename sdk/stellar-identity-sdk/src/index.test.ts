@@ -65,13 +65,15 @@ describe("computePublicInputsHash", () => {
 });
 
 describe("computeAttestedClaimsHash", () => {
-  it("returns 32-byte hex", () => {
-    const hash = computeAttestedClaimsHash({
-      age: 25,
-      countryCode: 840,
-      isHuman: true,
-    });
-    assert.match(hash, /^0x[0-9a-f]{64}$/);
+  it("matches contract LE u32 packing (golden vectors)", () => {
+    assert.strictEqual(
+      computeAttestedClaimsHash({ age: 25, countryCode: 840, isHuman: true }),
+      "0x4696fd2021cf7b5093dcd463c913b9c54fea0dc4ba123dac9b2678da21ea1d35",
+    );
+    assert.strictEqual(
+      computeAttestedClaimsHash({ age: 28, countryCode: 840, isHuman: true }),
+      "0xb4dd459e53a3bfea927d4f5b2d51552f636bea49c582bca880514a3949663fbd",
+    );
   });
 });
 

@@ -2,6 +2,17 @@ use anyhow::{Context, Result};
 use num_bigint::BigUint;
 use std::str::FromStr;
 
+/// Phase 2 queryIdentity: 14 public inputs + 9 outputs (23 signals).
+pub const RARIMO_PHASE2_PUBLIC_SIGNALS: usize = 23;
+pub const RARIMO_PHASE2_BIRTH_DATE_INDEX: usize = 15;
+pub const RARIMO_PHASE2_NATIONALITY_INDEX: usize = 19;
+pub const RARIMO_PHASE2_CITIZENSHIP_INDEX: usize = 20;
+
+/// Layout stub: 6 public inputs (nullifier, birthDate, expirationDate, pad×2, nationality).
+pub const RARIMO_LAYOUT_STUB_SIGNALS: usize = 6;
+pub const RARIMO_LAYOUT_BIRTH_DATE_INDEX: usize = 1;
+pub const RARIMO_LAYOUT_COUNTRY_INDEX: usize = 5;
+
 #[derive(Debug, Clone)]
 pub struct RarimoPublicSignals {
     pub birth_date: String,
@@ -9,27 +20,39 @@ pub struct RarimoPublicSignals {
 }
 
 impl RarimoPublicSignals {
-    /// Rarimo query: birthDate @ [1]. Country @ [5] is nationality (TD3) or citizenship (TD1);
-    /// contract `RarimoQuery` also reads [5] for country_code.
+    /// Parse birthDate and country from Rarimo query public signals (layout stub or Phase 2).
     pub fn from_query_output(signals: &[String]) -> Result<Self> {
-        if signals.len() < 6 {
+        if signals.len() >= RARIMO_PHASE2_PUBLIC_SIGNALS {
+            let nationality = &signals[RARIMO_PHASE2_NATIONALITY_INDEX];
+            let country = if nationality == "0" {
+                signals[RARIMO_PHASE2_CITIZENSHIP_INDEX].clone()
+            } else {
+                nationality.clone()
+            };
+            Ok(Self {
+                birth_date: signals[RARIMO_PHASE2_BIRTH_DATE_INDEX].clone(),
+                nationality: country,
+            })
+        } else if signals.len() >= RARIMO_LAYOUT_STUB_SIGNALS {
+            Ok(Self {
+                birth_date: signals[RARIMO_LAYOUT_BIRTH_DATE_INDEX].clone(),
+                nationality: signals[RARIMO_LAYOUT_COUNTRY_INDEX].clone(),
+            })
+        } else {
             anyhow::bail!(
-                "rarimo query circuit expects at least 6 public signals, got {}",
+                "rarimo query circuit expects at least {} public signals (layout stub) or {} (Phase 2), got {}",
+                RARIMO_LAYOUT_STUB_SIGNALS,
+                RARIMO_PHASE2_PUBLIC_SIGNALS,
                 signals.len()
             );
         }
-
-        Ok(Self {
-            birth_date: signals[1].clone(),
-            nationality: signals[5].clone(),
-        })
     }
 
     pub fn parse_birth_date_yymmdd(&self) -> Result<(u16, u8, u8)> {
         let birth_str = self.birth_date.trim();
 
-        if birth_str.is_empty() {
-            return Ok((0, 0, 0));
+        if birth_str.is_empty() || birth_str == "0" {
+            anyhow::bail!("birth_date is empty or zero");
         }
 
         let padded = if birth_str.len() < 6 {
@@ -144,6 +167,47 @@ pub struct WraithClaims {
 mod tests {
     use super::*;
 
+    fn layout_stub_signals() -> Vec<String> {
+        vec![
+            "42".into(),
+            "950101".into(),
+            "300101".into(),
+            "0".into(),
+            "0".into(),
+            "840".into(),
+        ]
+    }
+
+    fn phase2_signals() -> Vec<String> {
+        let mut s = vec!["0".to_string(); RARIMO_PHASE2_PUBLIC_SIGNALS];
+        s[15] = "950101".into();
+        s[19] = "840".into();
+        s
+    }
+
+    #[test]
+    fn test_from_query_output_layout_stub() {
+        let parsed = RarimoPublicSignals::from_query_output(&layout_stub_signals()).unwrap();
+        assert_eq!(parsed.birth_date, "950101");
+        assert_eq!(parsed.nationality, "840");
+    }
+
+    #[test]
+    fn test_from_query_output_phase2() {
+        let parsed = RarimoPublicSignals::from_query_output(&phase2_signals()).unwrap();
+        assert_eq!(parsed.birth_date, "950101");
+        assert_eq!(parsed.nationality, "840");
+    }
+
+    #[test]
+    fn test_from_query_output_phase2_citizenship_fallback() {
+        let mut s = phase2_signals();
+        s[19] = "0".into();
+        s[20] = "826".into();
+        let parsed = RarimoPublicSignals::from_query_output(&s).unwrap();
+        assert_eq!(parsed.nationality, "826");
+    }
+
     #[test]
     fn test_parse_birth_date() {
         let signals = RarimoPublicSignals {
@@ -153,6 +217,15 @@ mod tests {
 
         let (yy, mm, dd) = signals.parse_birth_date_yymmdd().unwrap();
         assert_eq!((yy, mm, dd), (95, 1, 1));
+    }
+
+    #[test]
+    fn test_parse_birth_date_rejects_empty() {
+        let signals = RarimoPublicSignals {
+            birth_date: "".to_string(),
+            nationality: "840".to_string(),
+        };
+        assert!(signals.parse_birth_date_yymmdd().is_err());
     }
 
     #[test]

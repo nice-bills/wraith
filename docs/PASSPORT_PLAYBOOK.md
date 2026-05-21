@@ -56,7 +56,7 @@ export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
 |------|--------|--------|
 | Validate | `validate-passport-json.mjs --mode full` | Real `sod` + `dg1` |
 | Register inputs | `passport-pipeline.sh` → `process_passport.js` | `rarimo/test/inputs/generated/*.json` |
-| Query prove | `passport-prove-rarimo-full.sh` | Full Groth16 when zkeys exist; else layout fallback |
+| Query prove | `passport-prove-rarimo-full.sh` | Full Phase 2 Groth16 (requires `make setup-rarimo-phase2`) |
 
 Phase 2 setup (once per machine, ~150MB PTAU download + zkey):
 
@@ -75,7 +75,7 @@ Identity SMT: `build-rarimo-query-input.mjs` builds a **single-leaf dev tree** (
 ./scripts/passport-ready.sh passport-data/my-passport.json
 ```
 
-Uses **full** if `sod`/`dg1` validate; otherwise **layout**.
+`passport-ready.sh` routes to **layout** (claims-only demo) or **full** (NFC scan + Phase 2) based on `--mode` / validation.
 
 ---
 
@@ -93,3 +93,10 @@ Uses **full** if `sod`/`dg1` validate; otherwise **layout**.
 ## Pinned contract
 
 `deployments/futurenet.json` — `claim_layout: RarimoQuery`, `current_date_ymd` on `verify_and_record`.
+
+**Public signal indices** (see `deployments/circuits.json`):
+
+| Circuit | Signals | birthDate | country |
+|---------|---------|-----------|---------|
+| Layout stub | 6 | `[1]` | `[5]` nationality |
+| Phase 2 query | 23 | `[15]` | `[19]` nationality, else `[20]` citizenship (TD1) |

@@ -16,6 +16,13 @@
       "wasm": "tools/zk-circuits/build/rarimo-query/queryIdentity_js/queryIdentity.wasm",
       "vkHash": "60492d726f504e79f223ae62711f6fb401ccabf53c5e8948eb5879dc58c9ceb1",
       "publicSignals": 23,
+      "publicSignalLayout": "14 inputs (eventID..citizenshipMask) + 9 outputs (nullifier..documentNumber)",
+      "claimIndices": {
+        "birthDate": 15,
+        "nationality": 19,
+        "citizenship": 20,
+        "note": "country_code uses nationality if nonzero else citizenship (TD1)"
+      },
       "claimLayout": "RarimoQuery",
       "setup": "scripts/setup-rarimo-phase2.sh",
       "note": "Dev PTAU-17 zkey; re-pin vkHash after production ceremony"

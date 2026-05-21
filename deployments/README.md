@@ -4,7 +4,7 @@
 
 - **`futurenet.json` is the team pin** — one contract ID everyone uses for E2E and integration.
 - **Do not redeploy on every merge.** Merges run `make ci` only (no network, no new contract).
-- **Deploy only** when the contract ABI or storage layout breaks and you intentionally cut a new release.
+- **Deploy only** when the contract ABI or storage layout breaks and you intentionally cut a new release (e.g. after changing `RarimoQuery` claim indices).
 
 ## Pinned Futurenet contract (current)
 
@@ -30,4 +30,8 @@ Without `UPDATE_DEPLOYMENT_JSON=1`, the new ID is written only to `.contract-add
 
 ## CI
 
-GitHub Actions never deploy. It runs the same checks as `make ci`.
+GitHub Actions never deploy. It runs the same checks as `make ci` (local CI also runs passport layout validate/prove when zkeys exist).
+
+## Rarimo circuits
+
+Rarimo is cloned (not a submodule) at `tools/zk-circuits/rarimo/`, pinned by commit in `scripts/setup-rarimo.sh` (`RARIMO_REF` override supported).

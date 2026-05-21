@@ -26,12 +26,14 @@ invoke_sim() {
   local name="$1"
   shift
   echo "  simulate: $name"
-  stellar-cli contract invoke \
+  if ! stellar-cli contract invoke \
     --id "$CONTRACT_ID" \
     --source-account "$SOROBAN_SOURCE_ACCOUNT" \
     --network "$STELLAR_NETWORK" \
     --send=no \
-    "$@" >/dev/null 2>&1 || true
+    "$@" >/dev/null 2>&1; then
+    echo "  warning: simulation failed for $name (non-fatal)" >&2
+  fi
 }
 
 fetch_fee() {

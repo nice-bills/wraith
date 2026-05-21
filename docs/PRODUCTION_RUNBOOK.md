@@ -5,8 +5,9 @@
 
 - Network: Futurenet (Test SDF Future Network ; October 2022)
 - Soroban RPC: https://rpc-futurenet.stellar.org:443
-- Contract ID: `CCILEZJOK7TKCLI3R2UN2B2TSKWILT6CWAUEQ7DWWH2L4WFAFLTOUVKM` (see `deployments/futurenet.json`)
-- Previous ID: `CDN4IVFM4BN466RIGW7L4I475WJ3UGKL2CCQD23DT5CEQU27BC6TBIDI` (LE `fr_to_u32`; superseded)
+- Contract ID: `CALSU3MUVR6CC3MT42SKKHM32RNF5NZQQFCUTQNF4G2NTCVDO4CMLLVO` (see `deployments/futurenet.json`)
+- Previous ID: `CCILEZJOK7TKCLI3R2UN2B2TSKWILT6CWAUEQ7DWWH2L4WFAFLTOUVKM` (superseded)
+- Note: pinned contract uses BE `fr_to_u32` for Groth16 claim binding
 
 ## Verified Proofs
 
@@ -61,6 +62,8 @@ make smoke
 export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
 make e2e-attested   # attested prover path
 make e2e-groth16    # e2e_claims.circom → prove → verify_and_record
+make e2e-rarimo     # layout stub → Futurenet RarimoQuery demo
+make attested-ready # KYC attested path with custom claims
 ```
 
 Groth16 `register_app` requires `--vk_hash` as JSON-quoted hex: `--vk_hash "\"<64-char-hex>\""`. Use `scripts/compute-vk-hash.mjs` on the adapter payload.

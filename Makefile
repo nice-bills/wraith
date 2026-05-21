@@ -1,4 +1,4 @@
-.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo setup-zk setup-passport attested-ready passport-ready benchmark-futurenet
+.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo e2e-rarimo-query setup-zk setup-passport setup-rarimo-phase2 setup-rarimo-phase2-td1 passport-layout attested-ready passport-ready benchmark-futurenet
 
 test:
 	cargo test

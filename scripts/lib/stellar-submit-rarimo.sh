@@ -29,12 +29,10 @@ VK_HASH=$(node "$ROOT_DIR/scripts/compute-vk-hash.mjs" "$PAYLOAD")
 PUB_SIGNALS=$(jq -c '.public_signals_decimals' "$PAYLOAD")
 CLAIMS=$(jq -c '.claims | {age, country_code, is_human}' "$PAYLOAD")
 
-node -e "
-const fs=require('fs'); const p=JSON.parse(fs.readFileSync('$PAYLOAD'));
-const s=h=>h.replace(/^0x/,'');
-fs.writeFileSync('/tmp/wraith-passport-proof.json', JSON.stringify({a:s(p.proof.a),b:s(p.proof.b),c:s(p.proof.c)}));
-fs.writeFileSync('/tmp/wraith-passport-vk.json', JSON.stringify({alpha:s(p.verification_key.alpha),beta:s(p.verification_key.beta),gamma:s(p.verification_key.gamma),delta:s(p.verification_key.delta),ic:p.verification_key.ic.map(s)}));
-"
+# shellcheck source=/dev/null
+source "$ROOT_DIR/scripts/lib/write-stellar-proof-tmp.sh"
+write_stellar_proof_tmp "$PAYLOAD" wraith-passport
+trap 'rm -f "$PROOF_TMP" "$VK_TMP"' EXIT
 
 PUBHASH=$(invoke --send=no -- compute_pub_signals_hash --pub_signals "$PUB_SIGNALS" | tr -d '"')
 POLICY="{\"owner\":\"$SUBJECT\",\"min_age\":18,\"require_humanity\":true,\"sanctions_root\":\"$ZERO32\",\"excluded_countries\":[],\"expiration_window\":0,\"sanctions_enabled\":false,\"claim_layout\":\"RarimoQuery\"}"
@@ -49,8 +47,8 @@ invoke --send=yes -- register_app --app_id "$APP_ID" --policy "$POLICY" --vk_has
 invoke --send=yes -- verify_and_record \
   --app_id "$APP_ID" --subject "$SUBJECT" --nullifier "$NULLIFIER" \
   --public_inputs_hash "$PUBHASH" \
-  --proof-file-path /tmp/wraith-passport-proof.json \
-  --vk-file-path /tmp/wraith-passport-vk.json \
+  --proof-file-path "$PROOF_TMP" \
+  --vk-file-path "$VK_TMP" \
   --pub_signals "$PUB_SIGNALS" \
   --current_date_ymd "$CURRENT_DATE" \
   --claims "$CLAIMS"
