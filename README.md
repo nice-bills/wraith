@@ -78,6 +78,7 @@ make passport-layout   # quick demo
 | Path | Document | Guide | Make target |
 |------|----------|--------|-------------|
 | **KYC attested** | No chip (national ID, license photo) | `docs/KYC_ATTESTED.md` | `make attested-ready` |
+| **Document intake** | Any — detect route automatically | **`docs/DOCUMENT_INTAKE.md`** | **`make scan-intake FILE=...`** |
 | **Rarimo layout** | NFC demo / signal layout | `docs/PASSPORT_PLAYBOOK.md` | `make passport-layout` |
 | **Rarimo Phase 2** | NFC passport / ID (full crypto) | `docs/PASSPORT_PLAYBOOK.md` | `make setup-rarimo-phase2` |
 

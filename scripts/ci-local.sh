@@ -31,6 +31,8 @@ run "pnpm install --frozen-lockfile" pnpm install --frozen-lockfile
 run "SDK build (tsc)" pnpm --filter @wraith/stellar-identity-sdk run build
 run "SDK tests" pnpm --filter @wraith/stellar-identity-sdk test
 run "adapter smoke" make smoke
+run "document intake tests" node --test scripts/test/document-intake.test.mjs
+
 run "passport layout validate" node scripts/validate-passport-json.mjs --mode layout \
   tools/zk-circuits/fixtures/passport.layout.json
 

@@ -1,6 +1,12 @@
 # Passport / ID NFC scan → JSON
 
-Wraith does **not** include a scanner app in this repo. You use a reader app or JMRTD once, save JSON under `passport-data/`, then run our scripts.
+Wraith does **not** include a scanner app in this repo. You use a reader app or JMRTD once, save JSON under `passport-data/`, then run:
+
+```bash
+./scripts/scan-intake.sh nfc ~/Downloads/passport-dump.json
+```
+
+See **`docs/DOCUMENT_INTAKE.md`** for all document types (NFC, MRZ, photo KYC).
 
 **Supported:** NFC **passport** (TD3) and NFC **national ID card** (TD1, e.g. EU biometric ID).  
 **Not supported:** driver’s license or other documents **without** a chip. See `docs/IDENTITY_DOCUMENTS.md`.

@@ -1,0 +1,9 @@
+{
+  "_comment": "Synthetic nested NFC dump shape for normalize tests — not real passport data",
+  "data": {
+    "SOD": "00112233445566778899aabbccddeeff",
+    "DG1": "aabbccddeeff00112233445566778899",
+    "dateOfBirth": "950101",
+    "nationality": "USA"
+  }
+}

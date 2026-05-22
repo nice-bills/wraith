@@ -5,8 +5,8 @@
 | Your document | Path | Guide |
 |---------------|------|--------|
 | Passport or ID **with NFC chip** | Rarimo ZK | `docs/PASSPORT_PLAYBOOK.md` |
-| ID **without NFC** (your case) | **KYC attested** | **`docs/KYC_ATTESTED.md`** |
-| Paper driver’s license (no chip) | **KYC attested** | **`docs/KYC_ATTESTED.md`** |
+| ID **without NFC** (your case) | **KYC attested** | **`docs/DOCUMENT_INTAKE.md`** |
+| Paper driver’s license (no chip) | **KYC attested** | **`docs/DOCUMENT_INTAKE.md`** |
 
 ## Chip path (ICAO eMRTD) — Rarimo only
 
@@ -35,14 +35,20 @@ Possible **later**: verify Self attestations on Stellar (separate feature). Not 
 
 ## National ID without NFC
 
-Do **not** use passport/Rarimo scripts. Use the attested path:
+Do **not** use passport/Rarimo scripts for chip crypto. Use document intake:
 
 ```bash
-export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
-./scripts/attested-ready.sh tools/zk-circuits/fixtures/claims.attested.template.json
+# Photo ID → KYC staging
+./scripts/scan-intake.sh kyc --front /path/to/id-front.jpg
+
+# Or MRZ on back of card → attested claims
+./scripts/scan-intake.sh mrz "<MRZ lines>"
+
+# Or manual claims after review
+./scripts/scan-intake.sh claims tools/zk-circuits/fixtures/claims.attested.template.json
 ```
 
-See **`docs/KYC_ATTESTED.md`** for plugging in Persona/Sumsub later.
+See **`docs/DOCUMENT_INTAKE.md`** and **`docs/KYC_ATTESTED.md`**.
 
 ## National ID with NFC (chip card)
 

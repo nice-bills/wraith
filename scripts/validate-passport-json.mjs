@@ -3,7 +3,7 @@
  * Validate passport JSON for layout or full (Rarimo) paths.
  *
  * Usage:
- *   node scripts/validate-passport-json.mjs [--mode layout|full] <passport.json>
+ *   node scripts/validate-passport-json.mjs [--mode layout|full|attested] <passport.json>
  *
  * layout — dateOfBirth + nationality/country_code (Futurenet RarimoQuery demo)
  * full   — sod + dg1 from chip (required for process_passport / Phase 2)
@@ -28,18 +28,18 @@ for (let i = 0; i < args.length; i++) {
 
 const path = paths[0];
 if (!path) {
-  console.error("Usage: validate-passport-json.mjs [--mode layout|full] <passport.json>");
+  console.error("Usage: validate-passport-json.mjs [--mode layout|full|attested] <passport.json>");
   process.exit(1);
 }
 
-if (!["layout", "full"].includes(mode)) {
-  console.error("mode must be layout or full");
+if (!["layout", "full", "attested"].includes(mode)) {
+  console.error("mode must be layout, full, or attested");
   process.exit(1);
 }
 
 const j = JSON.parse(readFileSync(path, "utf8"));
 const fileMode = j._wraithMode;
-if (fileMode && fileMode !== mode) {
+if (fileMode && fileMode !== mode && mode !== "attested") {
   console.warn(`Note: file _wraithMode=${fileMode}, validating as --mode ${mode}`);
 }
 
@@ -52,6 +52,22 @@ function isPlaceholder(v) {
 
 function hasChipField(v) {
   return !isPlaceholder(v);
+}
+
+if (mode === "attested") {
+  const missing = [];
+  if (j.age == null) missing.push("age");
+  if (j.country_code == null && j.countryCode == null) missing.push("country_code");
+  if (j.is_human == null && j.isHuman == null) missing.push("is_human");
+  if (missing.length) {
+    console.error("Attested claims missing:", missing.join(", "));
+    process.exit(1);
+  }
+  console.log("OK: attested claims");
+  console.log("  age:", j.age);
+  console.log("  country_code:", j.country_code ?? j.countryCode);
+  console.log("  is_human:", j.is_human ?? j.isHuman);
+  process.exit(0);
 }
 
 if (mode === "layout") {

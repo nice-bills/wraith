@@ -1,15 +1,23 @@
 # passport-data/
 
-Put NFC scan JSON here. **Never commit real passport files.**
+Gitignored workspace for scans, intake manifests, and prove runs.
 
-1. Scan with an app — see **`docs/PASSPORT_SCAN.md`** (Android: zkcreds-passport-dumper).
-2. Normalize and run full path:
+## Quick start
 
 ```bash
-node scripts/normalize-passport-json.mjs ~/Downloads/dump.json passport-data/my-passport.json
-./scripts/passport-ready-full.sh passport-data/my-passport.json
+# Detect route from any JSON
+./scripts/scan-intake.sh detect tools/zk-circuits/fixtures/passport.layout.json
+
+# NFC dump from phone
+./scripts/scan-intake.sh nfc ~/Downloads/passport-dump.json
+
+# Non-NFC photo ID
+./scripts/scan-intake.sh kyc --front ~/Photos/id-front.jpg
+
+# MRZ from card (no chip)
+./scripts/scan-intake.sh mrz "<MRZ lines>"
 ```
 
-Layout demo (no scan): `./scripts/passport-ready-layout.sh tools/zk-circuits/fixtures/passport.layout.json`
+Full guide: **`docs/DOCUMENT_INTAKE.md`**
 
-Runs under `passport-data/runs/` (gitignored).
+**Never commit real passport or ID files.**

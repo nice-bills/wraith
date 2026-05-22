@@ -1,4 +1,4 @@
-.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo e2e-rarimo-query setup-zk setup-passport setup-rarimo-phase2 setup-rarimo-phase2-td1 passport-layout attested-ready passport-ready benchmark-futurenet
+.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo e2e-rarimo-query setup-zk setup-passport setup-rarimo-phase2 setup-rarimo-phase2-td1 passport-layout attested-ready passport-ready scan-intake scan-detect benchmark-futurenet
 
 test:
 	cargo test
@@ -50,8 +50,17 @@ attested-ready:
 	./scripts/attested-ready.sh
 
 passport-ready:
-	@echo "No NFC:  ./scripts/attested-ready.sh  (docs/KYC_ATTESTED.md)"
-	@echo "NFC ZK:  ./scripts/passport-ready-layout.sh (docs/PASSPORT_PLAYBOOK.md)"
+	@echo "No NFC:  ./scripts/scan-intake.sh kyc --front <photo>  (docs/DOCUMENT_INTAKE.md)"
+	@echo "NFC:     ./scripts/scan-intake.sh nfc <dump.json>"
+	@echo "Detect:  ./scripts/scan-intake.sh detect <file.json>"
+
+scan-detect:
+	@test -n "$(FILE)" || (echo "Usage: make scan-detect FILE=path/to/doc.json" && exit 1)
+	./scripts/scan-intake.sh detect "$(FILE)"
+
+scan-intake:
+	@test -n "$(FILE)" || (echo "Usage: make scan-intake FILE=path/to/doc.json" && exit 1)
+	./scripts/scan-intake.sh auto "$(FILE)"
 
 benchmark-futurenet:
 	./scripts/benchmark-futurenet.sh
