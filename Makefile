@@ -1,4 +1,4 @@
-.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo e2e-rarimo-query setup-zk setup-passport setup-rarimo-phase2 setup-rarimo-phase2-td1 passport-layout attested-ready passport-ready scan-intake scan-detect benchmark-futurenet
+.PHONY: test wasm sdk build-all ci smoke e2e-attested e2e-groth16 e2e-rarimo e2e-rarimo-query setup-zk setup-passport setup-rarimo-phase2 setup-rarimo-phase2-td1 passport-layout attested-ready passport-ready scan-intake scan-detect benchmark-futurenet register-stable-app prover-dev prover-test
 
 test:
 	cargo test
@@ -48,6 +48,15 @@ passport-layout:
 
 attested-ready:
 	./scripts/attested-ready.sh
+
+register-stable-app:
+	./scripts/register-stable-app.sh
+
+prover-dev:
+	pnpm --filter @wraith/prover dev
+
+prover-test:
+	pnpm --filter @wraith/prover test
 
 passport-ready:
 	@echo "No NFC:  ./scripts/scan-intake.sh kyc --front <photo>  (docs/DOCUMENT_INTAKE.md)"

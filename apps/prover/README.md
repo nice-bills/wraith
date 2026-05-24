@@ -1,24 +1,36 @@
 # @wraith/prover
 
-Phase 2 backend — verification status API and admin hooks for the attested (KYC) path.
+Phase 2 backend — KYC webhooks, attested prepare/submit, and verification status. **No frontend** in this package.
 
-## Endpoints
+Full API reference: [`docs/PROVER_API.md`](../../docs/PROVER_API.md)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | Liveness + pinned contract id |
-| GET | `/verify/:wallet?appId=` | On-chain `is_verified` + record (default `appId`: `wraith`) |
-| POST | `/admin/approve` | `{ "appId", "approved" }` → `set_app_approval` |
-| POST | `/webhook/kyc` | Stage KYC payload (in-memory; wire to `record_attested_result` next) |
-| GET | `/admin/pending` | List staged KYC webhooks |
-
-## Run
+## Quick start
 
 ```bash
-pnpm install
+export SOROBAN_SOURCE_ACCOUNT=bills-futurenet
+./scripts/register-stable-app.sh
 pnpm --filter @wraith/prover dev
+curl -s localhost:8787/health | jq .
 ```
 
-Env: `CONTRACT_ID`, `RPC_URL`, `STABLE_APP_ID`, `PORT` (optional).
+## Webhook example (generic)
 
-Submit attested proofs on Futurenet: `./scripts/attested-ready.sh` or `scan-intake.sh claims`.
+```bash
+curl -s -X POST localhost:8787/webhook/kyc \
+  -H 'Content-Type: application/json' \
+  -H "x-wraith-webhook-secret: $PROVER_WEBHOOK_SECRET" \
+  -d '{
+    "wallet": "G...",
+    "age": 25,
+    "country_code": 840,
+    "is_human": true
+  }'
+```
+
+Set `AUTO_SUBMIT_ATTESTED=1` to write on-chain immediately (dev keys only).
+
+## Test
+
+```bash
+pnpm --filter @wraith/prover test
+```

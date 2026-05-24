@@ -1,0 +1,12 @@
+{
+  "appId": "wraith",
+  "description": "Default Wraith app for KYC attested verifications (Futurenet)",
+  "policy": {
+    "min_age": 18,
+    "require_humanity": false,
+    "excluded_countries": [],
+    "expiration_window": 0,
+    "sanctions_enabled": false,
+    "claim_layout": "Standard"
+  }
+}

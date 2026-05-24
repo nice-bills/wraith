@@ -48,6 +48,8 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter @wraith/stellar-identity-sdk run build
           pnpm --filter @wraith/stellar-identity-sdk test
+      - name: Prover unit tests
+        run: pnpm --filter @wraith/prover test
 
   adapter-smoke:
     runs-on: ubuntu-latest

@@ -55,7 +55,9 @@ Or with a claims file:
 3. Your server builds the attestation hashes (use SDK `buildAttestedPayload` or contract `hash_*` helpers).
 4. User signs a Stellar tx that calls `record_attested_result` (your app/wallet co-signs as prover).
 
-We do **not** ship a Persona API key in this repo. You add the webhook in **your** backend repo.
+**This repo:** use `apps/prover` webhooks + `POST /admin/submit-attested`, or `AUTO_SUBMIT_ATTESTED=1` for dev (single key). See `docs/PROVER_API.md`.
+
+We do **not** ship a Persona API key in this repo. Configure webhooks to point at your prover host.
 
 ## Not the same thing
 
