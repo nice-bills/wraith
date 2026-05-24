@@ -58,6 +58,9 @@ struct AdapterOutput {
     verification_key: VerificationKeyPayload,
     public_signals_decimals: Vec<String>,
     public_signals_hex: Vec<String>,
+    /// YYMMDD u32 for Rarimo age binding (must match public signal index 4 on Phase 2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    current_date_ymd: Option<u32>,
     claims: Option<ClaimsPayload>,
 }
 
@@ -99,12 +102,15 @@ fn main() -> Result<()> {
 
     let public_signals_decimals = parse_public_signals(&public_signals)?;
 
-    let (output_public_signals, claims) = if cli.rarimo_mode {
+    let (output_public_signals, claims, current_date_ymd) = if cli.rarimo_mode {
         let current_date = cli.current_date.as_deref().ok_or_else(|| {
             anyhow::anyhow!(
                 "--current-date (YYMMDD, UTC) is required in --rarimo-mode for production use"
             )
         })?;
+        let current_date_ymd: u32 = current_date
+            .parse()
+            .with_context(|| format!("current-date must be YYMMDD u32, got {current_date}"))?;
 
         let rarimo_signals = RarimoPublicSignals::from_query_output(&public_signals_decimals)
             .context("failed to parse rarimo signals")?;
@@ -120,7 +126,11 @@ fn main() -> Result<()> {
         };
 
         // Keep full Rarimo public signal vector for Groth16 verification on-chain.
-        (public_signals_decimals.clone(), Some(claims_payload))
+        (
+            public_signals_decimals.clone(),
+            Some(claims_payload),
+            Some(current_date_ymd),
+        )
     } else {
         let claims = derive_claims(
             &public_signals_decimals,
@@ -128,7 +138,7 @@ fn main() -> Result<()> {
             cli.country_index,
             cli.humanity_index,
         )?;
-        (public_signals_decimals.clone(), claims)
+        (public_signals_decimals.clone(), claims, None)
     };
 
     let public_signals_hex: Vec<String> = output_public_signals
@@ -154,6 +164,7 @@ fn main() -> Result<()> {
         },
         public_signals_decimals: output_public_signals,
         public_signals_hex,
+        current_date_ymd,
         claims,
     };
 
@@ -405,6 +416,7 @@ mod tests {
             },
             public_signals_decimals: vec!["1".into()],
             public_signals_hex: vec!["0x01".into()],
+            current_date_ymd: None,
             claims: None,
         };
         assert!(validate_output(&output).is_err());
@@ -427,6 +439,7 @@ mod tests {
             },
             public_signals_decimals: vec!["1".into(), "2".into()],
             public_signals_hex: vec!["0x01".into(), "0x02".into()],
+            current_date_ymd: None,
             claims: None,
         };
         assert!(validate_output(&output).is_err());

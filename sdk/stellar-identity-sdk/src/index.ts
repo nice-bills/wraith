@@ -243,8 +243,14 @@ export function decimalToBn254FrHex(decimal: string): Hex {
   return `0x${buf.toString("hex")}` as Hex;
 }
 
-/** SHA-256 over concatenated Bn254Fr field bytes (matches on-chain `compute_pub_signals_hash`). */
-export function computePublicInputsHash(publicSignalsHex: string[]): Hex {
+/**
+ * SHA-256 over concatenated Bn254Fr field bytes (matches on-chain `compute_pub_signals_hash`).
+ * For RarimoQuery, pass `currentDateYmd` (YYMMDD u32); it is appended LE to the preimage.
+ */
+export function computePublicInputsHash(
+  publicSignalsHex: string[],
+  currentDateYmd = 0,
+): Hex {
   if (!publicSignalsHex.length) {
     throw new Error("publicSignalsHex cannot be empty.");
   }
@@ -257,7 +263,13 @@ export function computePublicInputsHash(publicSignalsHex: string[]): Hex {
   if (parts.some((part) => part.length !== 32)) {
     throw new Error("each public signal must be 32 bytes.");
   }
-  const digest = createHash("sha256").update(Buffer.concat(parts)).digest("hex");
+  const chunks = [...parts];
+  if (currentDateYmd !== 0) {
+    const le = Buffer.alloc(4);
+    le.writeUInt32LE(currentDateYmd, 0);
+    chunks.push(le);
+  }
+  const digest = createHash("sha256").update(Buffer.concat(chunks)).digest("hex");
   return `0x${digest}` as Hex;
 }
 

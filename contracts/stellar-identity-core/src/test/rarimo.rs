@@ -61,7 +61,7 @@ fn rarimo_query_phase2_layout_derives_age_and_country() {
             z(),
             z(),
             z(),
-            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 260_515)),
             z(),
             z(),
             z(),
@@ -92,6 +92,44 @@ fn rarimo_query_phase2_layout_derives_age_and_country() {
 }
 
 #[test]
+fn rarimo_query_rejects_current_date_mismatch() {
+    let env = Env::default();
+    let z = || Bn254Fr::from_u256(U256::from_u32(&env, 0));
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            z(),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 260_515)),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 950_101)),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            z(),
+            z(),
+            z(),
+        ],
+    );
+
+    let err = crate::claims::derive_from_signals(&pub_signals, &ClaimLayout::RarimoQuery, 250_101)
+        .unwrap_err();
+    assert_eq!(err, IdentityError::CurrentDateMismatch);
+}
+
+#[test]
 fn rarimo_query_phase2_uses_citizenship_when_nationality_zero() {
     let env = Env::default();
     env.mock_all_auths();
@@ -108,7 +146,7 @@ fn rarimo_query_phase2_uses_citizenship_when_nationality_zero() {
             z(),
             z(),
             z(),
-            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 260_515)),
             z(),
             z(),
             z(),
@@ -134,4 +172,42 @@ fn rarimo_query_phase2_uses_citizenship_when_nationality_zero() {
         crate::claims::derive_from_signals(&pub_signals, &ClaimLayout::RarimoQuery, 260_515)
             .unwrap();
     assert_eq!(derived.country_code, 826);
+}
+
+#[test]
+fn rarimo_groth16_hash_binds_current_date() {
+    let env = Env::default();
+    let z = || Bn254Fr::from_u256(U256::from_u32(&env, 0));
+    let pub_signals = Vec::from_array(
+        &env,
+        [
+            z(),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 260_515)),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 950_101)),
+            z(),
+            z(),
+            z(),
+            Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+            z(),
+            z(),
+            z(),
+        ],
+    );
+
+    let h0 = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals, 0).unwrap();
+    let h1 = StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals, 260_515).unwrap();
+    assert_ne!(h0, h1);
 }

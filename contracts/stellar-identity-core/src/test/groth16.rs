@@ -68,7 +68,7 @@ fn rejects_malformed_vk_before_pairing() {
         ],
     );
     let pub_inputs_hash =
-        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals, 0).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -140,7 +140,7 @@ fn verify_and_record_requires_vk_hash() {
         ],
     );
     let pub_inputs_hash =
-        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals, 0).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -212,7 +212,7 @@ fn verify_and_record_rejects_vk_mismatch() {
         ],
     );
     let pub_inputs_hash =
-        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals, 0).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -284,7 +284,7 @@ fn verify_and_record_rejects_claim_mismatch() {
         ],
     );
     let pub_inputs_hash =
-        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals, 0).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(
@@ -356,7 +356,7 @@ fn with_sanctions_disabled_vk_mismatch_is_reached() {
         ],
     );
     let pub_inputs_hash =
-        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals).unwrap();
+        StellarIdentityCore::compute_pub_signals_hash(&env, &pub_signals, 0).unwrap();
 
     let result = env.as_contract(&contract_id, || {
         StellarIdentityCore::verify_and_record(

@@ -45,6 +45,7 @@ pub enum IdentityError {
     AttestationHashMismatch = 19,
     ExcludedCountriesLimit = 20,
     InsufficientPublicSignals = 21,
+    CurrentDateMismatch = 22,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -387,7 +388,12 @@ impl StellarIdentityCore {
             return Err(IdentityError::InsufficientPublicSignals);
         }
 
-        let computed_pub_inputs_hash = Self::compute_pub_signals_hash_internal(&env, &pub_signals)?;
+        let computed_pub_inputs_hash = Self::compute_groth16_inputs_hash(
+            &env,
+            &pub_signals,
+            current_date_ymd,
+            &policy.claim_layout,
+        )?;
         if public_inputs_hash != computed_pub_inputs_hash {
             return Err(IdentityError::PublicInputsHashMismatch);
         }
@@ -749,6 +755,37 @@ impl StellarIdentityCore {
         Ok(env.crypto().sha256(&bytes).into())
     }
 
+    /// Groth16 public-input digest: signals only (Standard), or signals + LE `current_date_ymd` (Rarimo).
+    fn compute_groth16_inputs_hash(
+        env: &Env,
+        pub_signals: &Vec<Bn254Fr>,
+        current_date_ymd: u32,
+        claim_layout: &ClaimLayout,
+    ) -> Result<BytesN<32>, IdentityError> {
+        let mut bytes = Bytes::new(env);
+        for i in 0..pub_signals.len() {
+            let signal = pub_signals
+                .get(i)
+                .ok_or(IdentityError::InsufficientPublicSignals)?;
+            bytes.append(&signal.to_bytes().into());
+        }
+        match claim_layout {
+            ClaimLayout::Standard => {
+                if current_date_ymd != 0 {
+                    return Err(IdentityError::PolicyViolation);
+                }
+            }
+            ClaimLayout::RarimoQuery => {
+                if current_date_ymd == 0 {
+                    return Err(IdentityError::PolicyViolation);
+                }
+                bytes.extend_from_slice(&current_date_ymd.to_le_bytes());
+                claims::validate_current_date_ymd(pub_signals, current_date_ymd)?;
+            }
+        }
+        Ok(env.crypto().sha256(&bytes).into())
+    }
+
     fn compute_attested_claims_hash(env: &Env, claims: &AttestedClaims) -> BytesN<32> {
         let mut bytes = Bytes::new(env);
         bytes.extend_from_slice(&claims.age.to_le_bytes());
@@ -799,11 +836,25 @@ impl StellarIdentityCore {
     }
 
     /// Used by unit tests and off-chain hash replication.
+    /// Pass `current_date_ymd = 0` for Standard layout; non-zero for Rarimo (appended LE to digest).
     pub fn compute_pub_signals_hash(
         env: &Env,
         pub_signals: &Vec<Bn254Fr>,
+        current_date_ymd: u32,
     ) -> Result<BytesN<32>, IdentityError> {
-        Self::compute_pub_signals_hash_internal(env, pub_signals)
+        if current_date_ymd == 0 {
+            Self::compute_pub_signals_hash_internal(env, pub_signals)
+        } else {
+            let mut bytes = Bytes::new(env);
+            for i in 0..pub_signals.len() {
+                let signal = pub_signals
+                    .get(i)
+                    .ok_or(IdentityError::InsufficientPublicSignals)?;
+                bytes.append(&signal.to_bytes().into());
+            }
+            bytes.extend_from_slice(&current_date_ymd.to_le_bytes());
+            Ok(env.crypto().sha256(&bytes).into())
+        }
     }
 
     fn read_admin(env: &Env) -> Result<Address, IdentityError> {

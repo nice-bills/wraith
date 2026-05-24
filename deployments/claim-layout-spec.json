@@ -15,9 +15,11 @@
     },
     "rarimoPhase2": {
       "minSignals": 23,
+      "currentDateIndex": 4,
       "birthDateIndex": 15,
       "nationalityIndex": 19,
-      "citizenshipIndex": 20
+      "citizenshipIndex": 20,
+      "hashIncludesCurrentDateLe": true
     }
   },
   "goldenVectors": [

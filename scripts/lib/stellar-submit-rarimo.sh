@@ -34,7 +34,8 @@ source "$ROOT_DIR/scripts/lib/write-stellar-proof-tmp.sh"
 write_stellar_proof_tmp "$PAYLOAD" wraith-passport
 trap 'rm -f "$PROOF_TMP" "$VK_TMP"' EXIT
 
-PUBHASH=$(invoke --send=no -- compute_pub_signals_hash --pub_signals "$PUB_SIGNALS" | tr -d '"')
+PUBHASH=$(invoke --send=no -- compute_pub_signals_hash \
+  --pub_signals "$PUB_SIGNALS" --current_date_ymd "$CURRENT_DATE" | tr -d '"')
 POLICY="{\"owner\":\"$SUBJECT\",\"min_age\":18,\"require_humanity\":true,\"sanctions_root\":\"$ZERO32\",\"excluded_countries\":[],\"expiration_window\":0,\"sanctions_enabled\":false,\"claim_layout\":\"RarimoQuery\"}"
 
 echo "Contract:  $CONTRACT_ID"

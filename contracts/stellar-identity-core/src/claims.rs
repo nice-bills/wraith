@@ -13,6 +13,8 @@ pub const RARIMO_LAYOUT_COUNTRY_INDEX: u32 = 5;
 
 /// Phase 2 queryIdentity: 14 inputs + 9 outputs.
 pub const RARIMO_PHASE2_MIN_SIGNALS: u32 = 23;
+/// Public input `currentDate` (YYMMDD) — must match `current_date_ymd` on `verify_and_record`.
+pub const RARIMO_PHASE2_CURRENT_DATE_INDEX: u32 = 4;
 pub const RARIMO_PHASE2_BIRTH_DATE_INDEX: u32 = 15;
 pub const RARIMO_PHASE2_NATIONALITY_INDEX: u32 = 19;
 pub const RARIMO_PHASE2_CITIZENSHIP_INDEX: u32 = 20;
@@ -56,14 +58,43 @@ pub fn age_from_birth_yymmdd(birth_yymmdd: u32, current_yymmdd: u32) -> Result<u
     Ok(age)
 }
 
+/// For Rarimo Phase 2, `current_date_ymd` must match the circuit public input at index 4.
+pub fn validate_current_date_ymd(
+    pub_signals: &Vec<Bn254Fr>,
+    current_date_ymd: u32,
+) -> Result<(), IdentityError> {
+    if current_date_ymd == 0 {
+        return Err(IdentityError::PolicyViolation);
+    }
+    if pub_signals.len() >= RARIMO_PHASE2_MIN_SIGNALS {
+        let on_chain = fr_to_u32(
+            &pub_signals
+                .get(RARIMO_PHASE2_CURRENT_DATE_INDEX)
+                .ok_or(IdentityError::InsufficientPublicSignals)?,
+        )?;
+        if on_chain != current_date_ymd {
+            return Err(IdentityError::CurrentDateMismatch);
+        }
+    }
+    Ok(())
+}
+
 pub fn derive_from_signals(
     pub_signals: &Vec<Bn254Fr>,
     layout: &ClaimLayout,
     current_date_ymd: u32,
 ) -> Result<AttestedClaims, IdentityError> {
     match layout {
-        ClaimLayout::Standard => derive_standard(pub_signals),
-        ClaimLayout::RarimoQuery => derive_rarimo(pub_signals, current_date_ymd),
+        ClaimLayout::Standard => {
+            if current_date_ymd != 0 {
+                return Err(IdentityError::PolicyViolation);
+            }
+            derive_standard(pub_signals)
+        }
+        ClaimLayout::RarimoQuery => {
+            validate_current_date_ymd(pub_signals, current_date_ymd)?;
+            derive_rarimo(pub_signals, current_date_ymd)
+        }
     }
 }
 
@@ -166,6 +197,44 @@ mod tests {
     #[test]
     fn age_from_birth_yymmdd_golden() {
         assert_eq!(age_from_birth_yymmdd(950_101, 260_515).unwrap(), 31);
+    }
+
+    #[test]
+    fn validate_current_date_rejects_mismatch_phase2() {
+        let env = Env::default();
+        let z = || Bn254Fr::from_u256(U256::from_u32(&env, 0));
+        let pub_signals = Vec::from_array(
+            &env,
+            [
+                z(),
+                z(),
+                z(),
+                z(),
+                Bn254Fr::from_u256(U256::from_u32(&env, 260_515)),
+                z(),
+                z(),
+                z(),
+                z(),
+                z(),
+                z(),
+                z(),
+                z(),
+                z(),
+                z(),
+                Bn254Fr::from_u256(U256::from_u32(&env, 950_101)),
+                z(),
+                z(),
+                z(),
+                Bn254Fr::from_u256(U256::from_u32(&env, 840)),
+                z(),
+                z(),
+                z(),
+            ],
+        );
+        assert_eq!(
+            validate_current_date_ymd(&pub_signals, 250_101).unwrap_err(),
+            IdentityError::CurrentDateMismatch
+        );
     }
 
     #[test]

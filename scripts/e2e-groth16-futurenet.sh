@@ -64,7 +64,8 @@ source "$ROOT_DIR/scripts/lib/write-stellar-proof-tmp.sh"
 write_stellar_proof_tmp "$PAYLOAD" wraith-groth16
 trap 'rm -f "$PROOF_TMP" "$VK_TMP"' EXIT
 
-PUBHASH=$(invoke --send=no -- compute_pub_signals_hash --pub_signals "$PUB_SIGNALS" | tr -d '"')
+PUBHASH=$(invoke --send=no -- compute_pub_signals_hash \
+  --pub_signals "$PUB_SIGNALS" --current_date_ymd 0 | tr -d '"')
 echo "   vk_hash: $VK_HASH"
 echo "   pub_hash: $PUBHASH"
 

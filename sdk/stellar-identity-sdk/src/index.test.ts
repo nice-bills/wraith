@@ -62,6 +62,17 @@ describe("computePublicInputsHash", () => {
     const hash = computePublicInputsHash(signals);
     assert.match(hash, /^0x[0-9a-f]{64}$/);
   });
+
+  it("appends currentDateYmd for Rarimo binding", () => {
+    const signals = [
+      decimalToBn254FrHex("25"),
+      decimalToBn254FrHex("840"),
+      decimalToBn254FrHex("1"),
+    ];
+    const h0 = computePublicInputsHash(signals, 0);
+    const h1 = computePublicInputsHash(signals, 260515);
+    assert.notEqual(h0, h1);
+  });
 });
 
 describe("computeAttestedClaimsHash", () => {
