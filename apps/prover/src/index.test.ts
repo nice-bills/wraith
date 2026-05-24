@@ -16,7 +16,7 @@ describe("prover API", () => {
   it("GET /health returns contract metadata", async () => {
     const app = await buildServer({
       deployment: {
-        contractId: "CALSU3MUVR6CC3MT42SKKHM32RNF5NZQQFCUTQNF4G2NTCVDO4CMLLVO",
+        contractId: "CDILCFGJMHXUU2SXNICUVMNFFTAXKL6ULNJ44NEPGMNIGFOA44O3F22W",
         rpcUrl: "https://rpc-futurenet.stellar.org:443",
         networkPassphrase: "Test SDF Future Network ; October 2022",
       },

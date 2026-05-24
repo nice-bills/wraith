@@ -8,6 +8,7 @@ Last updated after Phase 2 prover + thermo-nuclear refactors.
 |------|--------|
 | Soroban contract | Futurenet pinned; `claims.rs`, `finalize_verification`, tests split |
 | Claim layout spec | `deployments/claim-layout-spec.json` + cross-layer goldens |
+| Rarimo age binding | `current_date_ymd` in hash + must match public signal [4] (Phase 2) |
 | Proof adapter | Standard + Rarimo layouts; CLI smoke |
 | SDK | `@wraith/stellar-identity-sdk`; attested + Groth16 helpers |
 | Document intake | `scan-intake.sh`, MRZ, KYC staging, attested path |
@@ -27,6 +28,7 @@ Last updated after Phase 2 prover + thermo-nuclear refactors.
 |------|--------|
 | **Frontend / Freighter** | Phase 3 — do not add until requested |
 | Mainnet deploy | Phase 7 — Futurenet only for now |
+| Contract redeploy | Done 2026-05-24 (`deployments/futurenet.json`) |
 | Contract redeploy for new Rarimo indices | Only if you switch to NFC ZK on-chain |
 | Production MPC ceremony | `docs/PRODUCTION_ZK_ROADMAP.md` Phase 4 |
 | Sanctions Merkle circuit | Phase 3 in ZK roadmap |

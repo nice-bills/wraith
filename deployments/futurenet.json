@@ -2,13 +2,13 @@
   "network": "futurenet",
   "rpcUrl": "https://rpc-futurenet.stellar.org:443",
   "networkPassphrase": "Test SDF Future Network ; October 2022",
-  "contractId": "CALSU3MUVR6CC3MT42SKKHM32RNF5NZQQFCUTQNF4G2NTCVDO4CMLLVO",
+  "contractId": "CDILCFGJMHXUU2SXNICUVMNFFTAXKL6ULNJ44NEPGMNIGFOA44O3F22W",
   "wasmPath": "target/wasm32v1-none/release/stellar_identity_core.wasm",
-  "wasmSha256": "ddf12274fe7b75e2c9169bf9459decd62df75b04b879c3e7b5b9343490e94be6",
-  "deployedAt": "2026-05-16T19:40:06Z",
+  "wasmSha256": "8ce7ba11271cb326d9ec46c2a423123634473783e94af338a423ea230a8cd3b1",
+  "deployedAt": "2026-05-24T14:15:19Z",
   "admin": "GDYLBKGXBZ4QWVKZGGEWEZ2CY4BNVULZ62JNI6JYGOENLNH6I5RC5SA5",
   "prover": "GDYLBKGXBZ4QWVKZGGEWEZ2CY4BNVULZ62JNI6JYGOENLNH6I5RC5SA5",
   "packageVersion": "0.1.0",
-  "previousContractId": "CCILEZJOK7TKCLI3R2UN2B2TSKWILT6CWAUEQ7DWWH2L4WFAFLTOUVKM",
-  "notes": "fr_to_u32 BE decode for Groth16 claim binding"
+  "previousContractId": "CALSU3MUVR6CC3MT42SKKHM32RNF5NZQQFCUTQNF4G2NTCVDO4CMLLVO",
+  "notes": "Rarimo current_date_ymd hash binding + signal[4] check; redeploy 2026-05-24"
 }

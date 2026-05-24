@@ -5,7 +5,7 @@
 
 - Network: Futurenet (Test SDF Future Network ; October 2022)
 - Soroban RPC: https://rpc-futurenet.stellar.org:443
-- Contract ID: `CALSU3MUVR6CC3MT42SKKHM32RNF5NZQQFCUTQNF4G2NTCVDO4CMLLVO` (see `deployments/futurenet.json`)
+- Contract ID: see `deployments/futurenet.json` (pinned Futurenet instance)
 - Previous ID: `CCILEZJOK7TKCLI3R2UN2B2TSKWILT6CWAUEQ7DWWH2L4WFAFLTOUVKM` (superseded)
 - Note: pinned contract uses BE `fr_to_u32` for Groth16 claim binding
 
