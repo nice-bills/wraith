@@ -31,6 +31,7 @@ run "pnpm install --frozen-lockfile" pnpm install --frozen-lockfile
 run "SDK build (tsc)" pnpm --filter @wraith/stellar-identity-sdk run build
 run "SDK tests" pnpm --filter @wraith/stellar-identity-sdk test
 run "adapter smoke" make smoke
+run "country code tests" node --test scripts/test/country-codes.test.mjs
 run "document intake tests" node --test scripts/test/document-intake.test.mjs
 run "prover unit tests" pnpm --filter @wraith/prover test
 

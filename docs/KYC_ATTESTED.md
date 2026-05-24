@@ -35,13 +35,15 @@ Simulate "KYC passed" on Futurenet with your own keys:
 
 ```bash
 export SOROBAN_SOURCE_ACCOUNT=bills-futurenet   # prover + subject for testing
-./scripts/attested-ready.sh --age 25 --country 840 --human
+./scripts/attested-ready.sh --age 25 --country US --human    # or NG, 566, NGA, etc.
 ```
+
+Country accepts **ISO 3166-1 numeric** (`566`), **alpha-2** (`NG`), or **alpha-3** (`NGA`). The contract stores numeric only; scripts normalize before submit.
 
 Or with a claims file:
 
 ```json
-{ "age": 25, "country_code": 840, "is_human": true }
+{ "age": 25, "country": "NG", "is_human": true }
 ```
 
 ```bash

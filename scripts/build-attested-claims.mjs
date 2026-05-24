@@ -12,7 +12,9 @@ import {
   ageFromBirthYymmdd,
   countryCodeFromNationality,
   currentYymmddUtc,
+  normalizeAttestedClaims,
   parseBirthYymmdd,
+  resolveCountryCode,
 } from "./lib/country-codes.mjs";
 import { analyzeDocumentFile } from "./lib/document-path.mjs";
 import { mrzToAttestedClaims } from "./lib/parse-mrz.mjs";
@@ -40,11 +42,7 @@ function fromPassportJson(path) {
   const analysis = analyzeDocumentFile(path);
 
   if (analysis.path === "attested") {
-    return {
-      age: Number(j.age),
-      country_code: Number(j.country_code ?? j.countryCode),
-      is_human: Boolean(j.is_human ?? j.isHuman),
-    };
+    return normalizeAttestedClaims(j);
   }
 
   const birthRaw =
@@ -53,10 +51,15 @@ function fromPassportJson(path) {
     throw new Error("missing dateOfBirth — scan NFC, parse MRZ, or set age manually");
   }
   const birthYymmdd = parseBirthYymmdd(birthRaw);
-  const countryCode =
-    j.country_code != null || j.countryCode != null
-      ? Number(j.country_code ?? j.countryCode)
-      : countryCodeFromNationality(j.nationality ?? j.issuerCountry);
+  const countrySrc =
+    j.country_code ??
+    j.countryCode ??
+    j.country ??
+    j.nationality ??
+    j.issuerCountry;
+  const countryCode = countrySrc != null
+    ? resolveCountryCode(countrySrc)
+    : countryCodeFromNationality(j.nationality ?? j.issuerCountry);
   const age = ageFromBirthYymmdd(birthYymmdd, currentYymmddUtc());
   return { age, country_code: countryCode, is_human: true };
 }

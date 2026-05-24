@@ -6,6 +6,7 @@ import type { StellarIdentityClient } from "@wraith/stellar-identity-sdk";
 import { prepareAttestedRecord, submitAttestedRecord } from "./attested.js";
 import { verifyWebhookSecret, WebhookAuthError } from "./auth.js";
 import { autoSubmitAttested, loadStableAppConfig, stableAppId } from "./config.js";
+import { normalizeAttestedClaims } from "./country-code.js";
 import {
   mapGenericWebhook,
   mapPersonaWebhook,
@@ -139,7 +140,13 @@ export async function buildServer(deps: ProverDeps = {}) {
   );
 
   app.post<{
-    Body: { wallet: string; age?: number; country_code?: number; is_human?: boolean };
+    Body: {
+      wallet: string;
+      age?: number;
+      country_code?: number | string;
+      country?: string;
+      is_human?: boolean;
+    };
   }>("/webhook/kyc", async (req) => {
     verifyWebhookSecret(req);
     const mapped = mapGenericWebhook(req.body);
@@ -165,20 +172,29 @@ export async function buildServer(deps: ProverDeps = {}) {
     Body: {
       wallet: string;
       age: number;
-      country_code: number;
+      country_code?: number | string;
+      country?: string;
       is_human?: boolean;
       submit?: boolean;
     };
   }>("/attested/prepare", async (req) => {
-    const { wallet, age, country_code, is_human, submit } = req.body ?? {};
-    if (!wallet || age == null || country_code == null) {
-      return app.status(400).send({ error: "wallet, age, country_code required" });
+    const { wallet, age, country_code, country, is_human, submit } = req.body ?? {};
+    if (!wallet || age == null) {
+      return app.status(400).send({
+        error: "wallet and age required; country as country_code or country (ISO)",
+      });
     }
-    const claims = {
-      age,
-      country_code,
-      is_human: is_human ?? true,
-    };
+    let claims: { age: number; country_code: number; is_human: boolean };
+    try {
+      claims = normalizeAttestedClaims({
+        age,
+        country_code: country_code ?? country,
+        is_human,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return app.status(400).send({ error: msg });
+    }
     const prepared = await prepareAttestedRecord({
       subject: wallet,
       claims,

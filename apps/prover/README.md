@@ -22,7 +22,7 @@ curl -s -X POST localhost:8787/webhook/kyc \
   -d '{
     "wallet": "G...",
     "age": 25,
-    "country_code": 840,
+    "country": "NG",
     "is_human": true
   }'
 ```

@@ -2,9 +2,9 @@
 # Model B — record KYC-style attested verification on Futurenet (no NFC / no ZK).
 #
 # Usage:
-#   ./scripts/attested-ready.sh                    # defaults: age 25, US, human
+#   ./scripts/attested-ready.sh                    # defaults: age 25, US (840), human
 #   ./scripts/attested-ready.sh claims.json
-#   ./scripts/attested-ready.sh --age 30 --country 826 --human
+#   ./scripts/attested-ready.sh --age 30 --country NG --human   # ISO alpha-2/3 or numeric
 #
 # Requires: SOROBAN_SOURCE_ACCOUNT (signs as prover AND subject for local testing)
 # For production: prover = backend key, subject = user key (both must sign the tx).
@@ -25,13 +25,12 @@ PREPARE_ONLY=0
 JSON_OUT=0
 
 AGE=25
-COUNTRY=840
+COUNTRY=US
 HUMAN=true
+CLAIMS_FILE=""
 
 if [[ $# -ge 1 && -f "$1" && "$1" != --* ]]; then
-  AGE=$(jq -r .age "$1")
-  COUNTRY=$(jq -r .country_code "$1")
-  HUMAN=$(jq -r .is_human "$1")
+  CLAIMS_FILE="$1"
   shift
 fi
 
@@ -54,8 +53,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-CLAIMS=$(jq -nc --argjson age "$AGE" --argjson cc "$COUNTRY" --argjson human "$HUMAN" \
-  '{age:$age, country_code:$cc, is_human:$human}')
+if [[ -n "$CLAIMS_FILE" ]]; then
+  CLAIMS="$(node "$ROOT_DIR/scripts/lib/normalize-claims-cli.mjs" "$CLAIMS_FILE")"
+else
+  HUMAN_FLAG=--human
+  [[ "$HUMAN" == "false" ]] && HUMAN_FLAG=--no-human
+  CLAIMS="$(node "$ROOT_DIR/scripts/lib/normalize-claims-cli.mjs" --age "$AGE" --country "$COUNTRY" $HUMAN_FLAG)"
+fi
+COUNTRY="$(echo "$CLAIMS" | jq -r .country_code)"
+AGE="$(echo "$CLAIMS" | jq -r .age)"
+HUMAN="$(echo "$CLAIMS" | jq -r .is_human)"
 
 POLICY=$(jq -nc \
   --arg owner "$PROVER" \

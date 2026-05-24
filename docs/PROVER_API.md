@@ -16,7 +16,7 @@ pnpm --filter @wraith/prover dev
 | `STABLE_APP_ID` | Default app (default: `wraith` from `deployments/stable-app.json`) |
 | `PROVER_WEBHOOK_SECRET` | Require `x-wraith-webhook-secret` on webhooks |
 | `AUTO_SUBMIT_ATTESTED=1` | Submit on-chain immediately after webhook (dev: same key as subject) |
-| `KYC_DEFAULT_AGE` / `KYC_DEFAULT_COUNTRY` | Fallback when vendor payload lacks fields |
+| `KYC_DEFAULT_AGE` / `KYC_DEFAULT_COUNTRY` | Optional dev fallback (ISO numeric or alpha); omit in production |
 
 ## Endpoints
 
@@ -26,7 +26,7 @@ pnpm --filter @wraith/prover dev
 | GET | `/config/stable-app` | Policy template |
 | GET | `/verify/:wallet` | `is_verified` + record |
 | POST | `/attested/prepare` | Build hashes; optional `{ submit: true }` |
-| POST | `/webhook/kyc` | Generic `{ wallet, age, country_code }` |
+| POST | `/webhook/kyc` | Generic `{ wallet, age, country }` (ISO numeric, alpha-2, or alpha-3) |
 | POST | `/webhook/persona` | Persona inquiry approved |
 | POST | `/webhook/sumsub` | Sumsub `applicantReviewed` GREEN |
 | POST | `/admin/submit-attested` | `{ "id" }` from pending queue |

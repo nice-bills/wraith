@@ -64,7 +64,7 @@ After KYC approves:
 
 ```bash
 # You or vendor set claims:
-echo '{"age":28,"country_code":840,"is_human":true}' > passport-data/my-claims.json
+echo '{"age":28,"country":"NG","is_human":true}' > passport-data/my-claims.json
 ./scripts/scan-intake.sh claims passport-data/my-claims.json
 ```
 

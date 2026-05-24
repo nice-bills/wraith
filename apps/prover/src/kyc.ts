@@ -1,4 +1,6 @@
 /** Attested claims shape (matches contract + scripts). */
+import { pickCountryCode, resolveCountryCode } from "./country-code.js";
+
 export type AttestedClaimsJson = {
   age: number;
   country_code: number;
@@ -49,18 +51,50 @@ function pickWallet(obj: Record<string, unknown>): string | null {
   return null;
 }
 
-function pickCountryCode(obj: Record<string, unknown>): number | null {
-  if (typeof obj.country_code === "number") return obj.country_code;
-  if (typeof obj.countryCode === "number") return obj.countryCode;
-  const nat = obj.nationality ?? obj.country;
-  if (typeof nat === "string" && /^\d+$/.test(nat)) return Number(nat);
+function fieldValue(obj: Record<string, unknown>, key: string): unknown {
+  const fields = obj.fields;
+  if (!fields || typeof fields !== "object" || Array.isArray(fields)) return null;
+  const f = (fields as Record<string, unknown>)[key];
+  if (f && typeof f === "object" && f !== null && "value" in f) {
+    return (f as { value?: unknown }).value;
+  }
   return null;
 }
 
 function pickAge(obj: Record<string, unknown>): number | null {
   if (typeof obj.age === "number") return obj.age;
   if (typeof obj.age === "string" && /^\d+$/.test(obj.age)) return Number(obj.age);
+  const fromField = fieldValue(obj, "age");
+  if (typeof fromField === "number") return fromField;
+  if (typeof fromField === "string" && /^\d+$/.test(fromField)) return Number(fromField);
   return null;
+}
+
+function pickCountryFromEnv(): number | null {
+  const raw = process.env.KYC_DEFAULT_COUNTRY;
+  if (!raw?.trim()) return null;
+  try {
+    return resolveCountryCode(raw.trim());
+  } catch {
+    return null;
+  }
+}
+
+function pickAgeFromEnv(): number | null {
+  const raw = process.env.KYC_DEFAULT_AGE;
+  if (!raw?.trim()) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) ? n : null;
+}
+
+function resolveCountry(
+  ...sources: Record<string, unknown>[]
+): number | null {
+  for (const src of sources) {
+    const c = pickCountryCode(src);
+    if (c != null) return c;
+  }
+  return pickCountryFromEnv();
 }
 
 /** Generic webhook: `{ wallet, age, country_code, is_human }` or nested under `claims`. */
@@ -78,9 +112,13 @@ export function mapGenericWebhook(body: unknown): KycResult {
     return { status: "ignored", reason: "missing stellar wallet (G…)" };
   }
   const age = pickAge(claimsSrc) ?? pickAge(root);
-  const country = pickCountryCode(claimsSrc) ?? pickCountryCode(root);
+  const country = resolveCountry(claimsSrc, root);
   if (age == null || country == null) {
-    return { status: "ignored", reason: "missing age or country_code" };
+    return {
+      status: "ignored",
+      reason:
+        "missing age or country (use country_code, country, or nationality as ISO numeric/alpha-2/alpha-3)",
+    };
   }
   const isHuman = claimsSrc.is_human ?? claimsSrc.isHuman ?? root.is_human ?? true;
   return {
@@ -125,11 +163,18 @@ export function mapPersonaWebhook(body: unknown): KycResult {
   const age =
     pickAge(attrs as Record<string, unknown>) ??
     pickAge(merged) ??
-    Number(process.env.KYC_DEFAULT_AGE ?? 25);
-  const country =
-    pickCountryCode(attrs as Record<string, unknown>) ??
-    pickCountryCode(merged) ??
-    Number(process.env.KYC_DEFAULT_COUNTRY ?? 840);
+    pickAgeFromEnv();
+  const country = resolveCountry(
+    attrs as Record<string, unknown>,
+    merged
+  );
+  if (age == null || country == null) {
+    return {
+      status: "ignored",
+      reason:
+        "persona: missing age or country in payload (set KYC_DEFAULT_* only for dev)",
+    };
+  }
   return {
     wallet,
     vendor: "persona",
@@ -163,14 +208,15 @@ export function mapSumsubWebhook(body: unknown): KycResult {
   const info = root.info;
   const infoObj =
     info && typeof info === "object" ? (info as Record<string, unknown>) : {};
-  const age =
-    pickAge(infoObj) ??
-    pickAge(root) ??
-    Number(process.env.KYC_DEFAULT_AGE ?? 25);
-  const country =
-    pickCountryCode(infoObj) ??
-    pickCountryCode(root) ??
-    Number(process.env.KYC_DEFAULT_COUNTRY ?? 840);
+  const age = pickAge(infoObj) ?? pickAge(root) ?? pickAgeFromEnv();
+  const country = resolveCountry(infoObj, root);
+  if (age == null || country == null) {
+    return {
+      status: "ignored",
+      reason:
+        "sumsub: missing age or country in payload (set KYC_DEFAULT_* only for dev)",
+    };
+  }
   return {
     wallet,
     vendor: "sumsub",
