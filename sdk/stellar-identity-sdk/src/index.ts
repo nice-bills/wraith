@@ -328,25 +328,19 @@ export function fromAdapterPayload(
   nullifier: Hex,
   options?: { publicInputsHash?: Hex },
 ): VerificationPayload {
-  const decimals =
-    adapter.public_signals_hex?.length === adapter.public_signals_decimals.length
-      ? null
-      : adapter.public_signals_decimals;
   const publicSignals =
     adapter.public_signals_hex ??
-    (decimals ?? []).map((value) => decimalToBn254FrHex(value));
-  const publicInputsHash =
-    options?.publicInputsHash ?? computePublicInputsHash(publicSignals);
-  const claims = adapter.claims
-    ? {
-        age: adapter.claims.age,
-        countryCode: adapter.claims.country_code,
-        isHuman: adapter.claims.is_human,
-      }
-    : { age: 0, countryCode: 0, isHuman: false };
+    adapter.public_signals_decimals.map((value) => decimalToBn254FrHex(value));
   if (!adapter.claims) {
     throw new Error("adapter output is missing claims.");
   }
+  const publicInputsHash =
+    options?.publicInputsHash ?? computePublicInputsHash(publicSignals);
+  const claims = {
+    age: adapter.claims.age,
+    countryCode: adapter.claims.country_code,
+    isHuman: adapter.claims.is_human,
+  };
   return {
     nullifier,
     publicInputsHash,

@@ -1,3 +1,4 @@
 packages:
   - sdk/stellar-identity-sdk
   - tools/zk-circuits
+  - apps/prover

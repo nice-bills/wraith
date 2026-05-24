@@ -295,6 +295,16 @@ mod tests {
     }
 
     #[test]
+    fn golden_spec_age_vector() {
+        let signals = RarimoPublicSignals {
+            birth_date: "950101".to_string(),
+            nationality: "840".to_string(),
+        };
+        let age = signals.derive_age("260515").unwrap();
+        assert_eq!(age, 31);
+    }
+
+    #[test]
     fn test_to_wraith_claims() {
         let signals = RarimoPublicSignals {
             birth_date: "950101".to_string(),

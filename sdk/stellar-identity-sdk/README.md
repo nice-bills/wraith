@@ -34,6 +34,7 @@ interface AppPolicy {
   excludedCountries: number[];
   expirationWindow: number;
   sanctionsEnabled: boolean;
+  claimLayout: ClaimLayout;
 }
 ```
 

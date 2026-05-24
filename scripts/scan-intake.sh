@@ -71,8 +71,6 @@ case "$CMD" in
         exec "$ROOT_DIR/scripts/passport-ready.sh" --layout "$FILE" "${SUBMIT_ARGS[@]}"
         ;;
       attested)
-        SUBMIT_ARGS=()
-        [[ "$SUBMIT" == "1" ]] && true
         exec "$ROOT_DIR/scripts/attested-ready.sh" "$FILE"
         ;;
       kyc-intake)

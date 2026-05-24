@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "agePivot": { "maxYyFor2000s": 50 },
+  "layouts": {
+    "standard": {
+      "minSignals": 3,
+      "ageIndex": 0,
+      "countryIndex": 1,
+      "humanIndex": 2
+    },
+    "rarimoLayoutStub": {
+      "minSignals": 6,
+      "birthDateIndex": 1,
+      "countryIndex": 5
+    },
+    "rarimoPhase2": {
+      "minSignals": 23,
+      "birthDateIndex": 15,
+      "nationalityIndex": 19,
+      "citizenshipIndex": 20
+    }
+  },
+  "goldenVectors": [
+    {
+      "name": "age_from_birth_yymmdd",
+      "birthYymmdd": 950101,
+      "currentYymmdd": 260515,
+      "expectedAge": 31
+    },
+    {
+      "name": "layout_stub_claims",
+      "layout": "rarimoLayoutStub",
+      "signals": ["42", "950101", "300101", "0", "0", "840"],
+      "currentYymmdd": 260515,
+      "expected": { "age": 31, "countryCode": 840, "isHuman": true }
+    },
+    {
+      "name": "phase2_claims",
+      "layout": "rarimoPhase2",
+      "signals": [
+        "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0",
+        "950101", "0", "0", "0", "840", "0", "0", "0"
+      ],
+      "currentYymmdd": 260515,
+      "expected": { "age": 31, "countryCode": 840, "isHuman": true }
+    },
+    {
+      "name": "phase2_citizenship_fallback",
+      "layout": "rarimoPhase2",
+      "signals": [
+        "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0",
+        "950101", "0", "0", "0", "0", "826", "0", "0"
+      ],
+      "currentYymmdd": 260515,
+      "expected": { "age": 31, "countryCode": 826, "isHuman": true }
+    }
+  ]
+}

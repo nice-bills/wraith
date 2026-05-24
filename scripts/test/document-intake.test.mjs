@@ -57,3 +57,35 @@ describe("ageFromBirthYymmdd", () => {
     assert.ok(age >= 29 && age <= 31);
   });
 });
+
+describe("claim-layout-spec golden vectors", () => {
+  it("matches deployments/claim-layout-spec.json", async () => {
+    const { loadClaimLayoutSpec, deriveClaimsFromSpec } = await import(
+      "../lib/claim-layout-spec.mjs"
+    );
+    const spec = loadClaimLayoutSpec();
+    for (const v of spec.goldenVectors) {
+      if (v.name === "age_from_birth_yymmdd") {
+        const age = ageFromBirthYymmdd(
+          String(v.birthYymmdd),
+          String(v.currentYymmdd)
+        );
+        assert.equal(age, v.expectedAge, v.name);
+        continue;
+      }
+      if (!v.layout || !v.signals) continue;
+      const claims = deriveClaimsFromSpec(
+        v.layout,
+        v.signals,
+        String(v.currentYymmdd)
+      );
+      assert.equal(claims.age, v.expected.age, `${v.name} age`);
+      assert.equal(
+        claims.country_code,
+        v.expected.countryCode,
+        `${v.name} country`
+      );
+      assert.equal(claims.is_human, v.expected.isHuman, `${v.name} human`);
+    }
+  });
+});

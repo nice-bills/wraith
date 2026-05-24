@@ -1,6 +1,9 @@
 #![no_std]
 #![allow(clippy::too_many_arguments)]
 
+mod claims;
+
+use claims::{derive_from_signals, verify_match};
 use soroban_sdk::{
     Address, Bytes, BytesN, Env, IntoVal, Symbol, Vec, contract, contracterror, contractevent,
     contractimpl, contracttype,
@@ -390,8 +393,8 @@ impl StellarIdentityCore {
         }
 
         let derived_claims =
-            Self::derive_claims_from_signals(&pub_signals, &policy.claim_layout, current_date_ymd)?;
-        Self::verify_claims_match(&derived_claims, &claims)?;
+            derive_from_signals(&pub_signals, &policy.claim_layout, current_date_ymd)?;
+        verify_match(&derived_claims, &claims)?;
 
         Self::validate_policy(&policy, &derived_claims)?;
         if policy.sanctions_enabled {
@@ -421,19 +424,7 @@ impl StellarIdentityCore {
             country_code: derived_claims.country_code,
             is_human: derived_claims.is_human,
         };
-        Self::store_record(&env, record.clone())?;
-        let source = VerificationSource::OnchainGroth16;
-        let app_id = record.app_id.clone();
-        let subject = record.subject.clone();
-        let nullifier = record.nullifier.clone();
-        VerificationRecorded {
-            app_id,
-            subject,
-            nullifier,
-            source,
-        }
-        .publish(&env);
-        Ok(record)
+        Self::finalize_verification(&env, record)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -497,18 +488,7 @@ impl StellarIdentityCore {
             country_code: claims.country_code,
             is_human: claims.is_human,
         };
-        Self::store_record(&env, record.clone())?;
-        let app_id = record.app_id.clone();
-        let subject = record.subject.clone();
-        let nullifier = record.nullifier.clone();
-        VerificationRecorded {
-            app_id,
-            subject,
-            nullifier,
-            source,
-        }
-        .publish(&env);
-        Ok(record)
+        Self::finalize_verification(&env, record)
     }
 
     pub fn is_verified(env: Env, app_id: Symbol, subject: Address) -> bool {
@@ -795,143 +775,20 @@ impl StellarIdentityCore {
         env.crypto().sha256(&bytes).into()
     }
 
-    /// Decode a small public signal from `Bn254Fr` (snarkjs-sized values).
-    /// `Fr::to_bytes()` is big-endian per soroban-sdk; take the low 4 bytes BE.
-    fn fr_to_u32(fr: &Bn254Fr) -> Result<u32, IdentityError> {
-        let bytes = fr.to_bytes();
-        Ok(u32::from_be_bytes([
-            bytes.get(28).unwrap_or(0),
-            bytes.get(29).unwrap_or(0),
-            bytes.get(30).unwrap_or(0),
-            bytes.get(31).unwrap_or(0),
-        ]))
-    }
-
-    fn derive_claims_from_signals(
-        pub_signals: &Vec<Bn254Fr>,
-        layout: &ClaimLayout,
-        current_date_ymd: u32,
-    ) -> Result<AttestedClaims, IdentityError> {
-        match layout {
-            ClaimLayout::Standard => {
-                if pub_signals.len() < 3 {
-                    return Err(IdentityError::InsufficientPublicSignals);
-                }
-                let age_fr = pub_signals
-                    .get(0)
-                    .ok_or(IdentityError::InsufficientPublicSignals)?;
-                let country_fr = pub_signals
-                    .get(1)
-                    .ok_or(IdentityError::InsufficientPublicSignals)?;
-                let is_human_fr = pub_signals
-                    .get(2)
-                    .ok_or(IdentityError::InsufficientPublicSignals)?;
-                let age = Self::fr_to_u32(&age_fr)?;
-                let country_code = Self::fr_to_u32(&country_fr)?;
-                let is_human_val = Self::fr_to_u32(&is_human_fr)?;
-                Ok(AttestedClaims {
-                    age,
-                    country_code,
-                    is_human: is_human_val != 0,
-                })
-            }
-            ClaimLayout::RarimoQuery => {
-                if current_date_ymd == 0 {
-                    return Err(IdentityError::PolicyViolation);
-                }
-                // Phase 2 queryIdentity: 14 public inputs + 9 outputs (23 total).
-                // Layout stub: 6 public inputs (nullifier, birthDate, …, nationality).
-                if pub_signals.len() >= 23 {
-                    let birth_fr = pub_signals
-                        .get(15)
-                        .ok_or(IdentityError::InsufficientPublicSignals)?;
-                    let nationality_fr = pub_signals
-                        .get(19)
-                        .ok_or(IdentityError::InsufficientPublicSignals)?;
-                    let citizenship_fr = pub_signals
-                        .get(20)
-                        .ok_or(IdentityError::InsufficientPublicSignals)?;
-                    let birth_yymmdd = Self::fr_to_u32(&birth_fr)?;
-                    let nationality = Self::fr_to_u32(&nationality_fr)?;
-                    let citizenship = Self::fr_to_u32(&citizenship_fr)?;
-                    let country_code = if nationality != 0 {
-                        nationality
-                    } else {
-                        citizenship
-                    };
-                    let age = Self::age_from_birth_yymmdd(birth_yymmdd, current_date_ymd)?;
-                    Ok(AttestedClaims {
-                        age,
-                        country_code,
-                        is_human: true,
-                    })
-                } else if pub_signals.len() >= 6 {
-                    let birth_fr = pub_signals
-                        .get(1)
-                        .ok_or(IdentityError::InsufficientPublicSignals)?;
-                    let nationality_fr = pub_signals
-                        .get(5)
-                        .ok_or(IdentityError::InsufficientPublicSignals)?;
-                    let birth_yymmdd = Self::fr_to_u32(&birth_fr)?;
-                    let country_code = Self::fr_to_u32(&nationality_fr)?;
-                    let age = Self::age_from_birth_yymmdd(birth_yymmdd, current_date_ymd)?;
-                    Ok(AttestedClaims {
-                        age,
-                        country_code,
-                        is_human: true,
-                    })
-                } else {
-                    Err(IdentityError::InsufficientPublicSignals)
-                }
-            }
+    fn finalize_verification(
+        env: &Env,
+        record: VerificationRecord,
+    ) -> Result<VerificationRecord, IdentityError> {
+        let source = record.source.clone();
+        Self::store_record(env, record.clone())?;
+        VerificationRecorded {
+            app_id: record.app_id.clone(),
+            subject: record.subject.clone(),
+            nullifier: record.nullifier.clone(),
+            source,
         }
-    }
-
-    /// Age in years from passport-style YYMMDD and current YYMMDD (UTC).
-    fn age_from_birth_yymmdd(birth_yymmdd: u32, current_yymmdd: u32) -> Result<u32, IdentityError> {
-        if birth_yymmdd == 0 || current_yymmdd == 0 {
-            return Err(IdentityError::PolicyViolation);
-        }
-        let birth_yy = birth_yymmdd / 10_000;
-        let birth_mm = (birth_yymmdd / 100) % 100;
-        let birth_dd = birth_yymmdd % 100;
-        let cur_yy = current_yymmdd / 10_000;
-        let cur_mm = (current_yymmdd / 100) % 100;
-        let cur_dd = current_yymmdd % 100;
-
-        // Passport YY: 00–50 → 2000–2050; 51–99 → 1951–1999 (ICAO-style pivot).
-        let birth_full_year = if birth_yy <= 50 {
-            2000 + birth_yy
-        } else {
-            1900 + birth_yy
-        };
-        let current_full_year = if cur_yy <= 50 {
-            2000 + cur_yy
-        } else {
-            1900 + cur_yy
-        };
-
-        let mut age = current_full_year.saturating_sub(birth_full_year);
-        if cur_mm < birth_mm || (cur_mm == birth_mm && cur_dd < birth_dd) {
-            age = age.saturating_sub(1);
-        }
-        Ok(age)
-    }
-
-    fn verify_claims_match(
-        derived: &AttestedClaims,
-        supplied: &AttestedClaims,
-    ) -> Result<(), IdentityError> {
-        if derived.age != supplied.age {
-            return Err(IdentityError::ClaimMismatch);
-        }
-        if derived.country_code != supplied.country_code {
-            return Err(IdentityError::ClaimMismatch);
-        }
-        if derived.is_human != supplied.is_human {
-            return Err(IdentityError::ClaimMismatch);
-        }
-        Ok(())
+        .publish(env);
+        Ok(record)
     }
 
     fn ensure_initialized(env: &Env) -> Result<(), IdentityError> {
@@ -965,16 +822,4 @@ impl StellarIdentityCore {
 }
 
 #[cfg(test)]
-mod claim_layout_tests {
-    use super::StellarIdentityCore;
-
-    #[test]
-    fn age_from_birth_yymmdd_matches_adapter_rules() {
-        assert_eq!(
-            StellarIdentityCore::age_from_birth_yymmdd(950_101, 260_515).unwrap(),
-            31
-        );
-    }
-}
-
 mod test;
