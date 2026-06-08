@@ -3,7 +3,9 @@ import {
   assertVerificationPayload,
   decimalToBn254FrHex,
   computePublicInputsHash,
+  computeAttestationHash,
   computeAttestedClaimsHash,
+  buildAttestedPayload,
   fromAdapterPayload,
   type Hex,
   type AdapterOutput,
@@ -88,6 +90,37 @@ describe("computeAttestedClaimsHash", () => {
   });
 });
 
+describe("buildAttestedPayload", () => {
+  it("derives matching attestation inputs", () => {
+    const claims = { age: 25, countryCode: 840, isHuman: true };
+    const expectedPublicInputsHash = computeAttestedClaimsHash(claims);
+    const expectedAttestationHash = computeAttestationHash({
+      proverXdr: Buffer.from("prover-xdr"),
+      appIdXdr: Buffer.from("app-xdr"),
+      subjectXdr: Buffer.from("subject-xdr"),
+      nullifier: fullHex("a", 32),
+      publicInputsHash: expectedPublicInputsHash,
+    });
+
+    const payload = buildAttestedPayload({
+      prover: "prover",
+      nullifier: fullHex("a", 32),
+      claims,
+      proverXdr: Buffer.from("prover-xdr"),
+      appIdXdr: Buffer.from("app-xdr"),
+      subjectXdr: Buffer.from("subject-xdr"),
+    });
+
+    assert.deepStrictEqual(payload, {
+      prover: "prover",
+      nullifier: fullHex("a", 32),
+      publicInputsHash: expectedPublicInputsHash,
+      attestationHash: expectedAttestationHash,
+      claims,
+    });
+  });
+});
+
 describe("fromAdapterPayload", () => {
   it("converts adapter output with decimal signals", () => {
     const adapter: AdapterOutput = {
@@ -118,6 +151,37 @@ describe("fromAdapterPayload", () => {
     assert.strictEqual(payload.publicSignals.length, 3);
     assert.strictEqual(payload.vk.ic.length, 4);
     assert.doesNotThrow(() => assertVerificationPayload(payload));
+  });
+
+  it("preserves currentDateYmd for Rarimo adapter output", () => {
+    const publicSignals = Array.from({ length: 23 }, (_, index) =>
+      decimalToBn254FrHex(String(index + 1)),
+    );
+    const adapter: AdapterOutput = {
+      proof: {
+        a: fullHex("2", 32),
+        b: fullHex("3", 256),
+        c: fullHex("4", 32),
+      },
+      verification_key: {
+        ...sampleVk,
+        ic: Array.from({ length: publicSignals.length + 1 }, (_, index) =>
+          fullHex(String((index % 10) + 1), 32),
+        ),
+      },
+      public_signals_decimals: publicSignals.map((_, index) => String(index + 1)),
+      public_signals_hex: publicSignals,
+      current_date_ymd: 260515,
+      claims: { age: 25, country_code: 840, is_human: true },
+    };
+
+    const payload = fromAdapterPayload(adapter, fullHex("a", 32));
+
+    assert.strictEqual(payload.currentDateYmd, 260515);
+    assert.strictEqual(
+      payload.publicInputsHash,
+      computePublicInputsHash(publicSignals, 260515),
+    );
   });
 });
 

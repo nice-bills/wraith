@@ -77,6 +77,7 @@ export interface AdapterOutput {
   verification_key: VerificationKeyInput;
   public_signals_decimals: string[];
   public_signals_hex?: string[];
+  current_date_ymd?: number;
   claims?: {
     age: number;
     country_code: number;
@@ -346,8 +347,10 @@ export function fromAdapterPayload(
   if (!adapter.claims) {
     throw new Error("adapter output is missing claims.");
   }
+  const currentDateYmd = adapter.current_date_ymd ?? 0;
   const publicInputsHash =
-    options?.publicInputsHash ?? computePublicInputsHash(publicSignals);
+    options?.publicInputsHash ??
+    computePublicInputsHash(publicSignals, currentDateYmd);
   const claims = {
     age: adapter.claims.age,
     countryCode: adapter.claims.country_code,
@@ -359,6 +362,7 @@ export function fromAdapterPayload(
     vk: adapter.verification_key,
     proof: adapter.proof,
     publicSignals,
+    currentDateYmd: adapter.current_date_ymd,
     claims,
   };
 }

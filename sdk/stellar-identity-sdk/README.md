@@ -23,6 +23,16 @@ Thin TypeScript client for the Stellar identity core contract.
 - `getRecord(appId, subject)` — returns null if expired
 - `hasNullifier(appId, nullifier)`
 
+## Helpers
+
+- `fromAdapterPayload(adapter, nullifier, options?)` — converts `proof-adapter` JSON into `verifyAndRecord` input
+- `computePublicInputsHash(publicSignalsHex, currentDateYmd?)` — matches the contract digest, including Rarimo `current_date_ymd` binding
+- `computeAttestedClaimsHash(claims)` — matches `hash_attested_claims`
+- `computeAttestationHash(...)` / `buildAttestedPayload(...)` — build attested prover inputs off-chain
+- `normalizeHex32(value)` — pad and normalize a 32-byte hex value
+
+For `ClaimLayout = "RarimoQuery"`, preserve the adapter's `current_date_ymd` value. `fromAdapterPayload()` carries it through automatically and includes it in the default `publicInputsHash`.
+
 ## AppPolicy interface
 
 ```typescript
